@@ -1,0 +1,6 @@
+{
+  "license_key": "YOUR-UNIQUE-LICENSE-KEY",
+  "machine_id": "المعرّف الذي أرسله لك العميل (SHA256)",
+  "issued_at": "2025-10-28",
+  "expires_at": "2026-10-28" 
+}
