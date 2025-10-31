@@ -86,20 +86,43 @@ class LicenseManager:
         """
         license_info = self.db.get_license_info()
         
-        # 1. التحقق من حالة التفعيل في قاعدة البيانات
-        if license_info and license_info.get('is_active') == 1:
-            expires_at_str = license_info.get('expires_at')
-            if expires_at_str:
-                if datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S').date() < date.today():
-                    # انتهت صلاحية الترخيص
+        # 0. إذا لم يوجد أو غير مفعّل → فعّل من الملف مباشرة
+        if not license_info or license_info.get('is_active') != 1:
+            return self.activate_from_file()
+        
+        
+        # 3. تحقق من تاريخ الانتهاء
+        expires_at_str = license_info.get('expires_at')
+
+
+        if expires_at_str:
+            try:
+                expires_date = datetime.strptime(expires_at_str, '%Y-%m-%dT%H:%M:%S').date()
+                if expires_date < date.today():
                     print("🔑 lm-cas License expired.")
                     self._update_local_license_status(is_active=False, status_msg='Expired')
                     return False
-            print("🔑 lm-cas License is active and valid." )
-            return True # مُفعّل وغير منتهي الصلاحية
+            except Exception as e:
+                print("⚠️ lm-cas Expiration date parse error:", e)
+        
+        
+        
+        # 4. تحقق من التوقيع والمفتاح العام دائماً
+        license_data = self._read_license_file()
+        if not license_data:
+            print("🔑 lm-cas ERROR: License file missing.")
+            return False
+    
+        if not self._verify_signature(license_data):
+            print("🔑 lm-cas ERROR: Invalid signature detected.")
+            self._update_local_license_status(is_active=False, status_msg='Invalid Signature')
+            return False
+    
+        print("🔑 lm-cas License verified and valid.")
+        return True
 
-        # 2. إذا لم يكن مفعلاً، حاول التفعيل من ملف الترخيص
-        return self.activate_from_file()
+
+
 
     def activate_from_file(self) -> bool:
         print("\n\n🔑 lm-af attempting activation from license file...")
