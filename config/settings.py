@@ -1,40 +1,31 @@
 import os
 
-# المسار الأساسي للمشروع (يفترض أن الملف يُنفذ من الجذر أو سيتم تعديله لاحقاً)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# ----------------------------------------------------------------------
-# إعدادات قاعدة البيانات (Database Settings)
-# ----------------------------------------------------------------------
+# --- إعداد المسارات الأساسية ---
 DB_NAME = 'appointment_manager.db'
 DB_PATH = os.path.join(os.getcwd(), DB_NAME)
-
-# ----------------------------------------------------------------------
-# إعدادات الترخيص (Licensing Settings)
-# ----------------------------------------------------------------------
+DB_PATH= os.path.join(os.path.dirname(__file__), DB_NAME)
 LICENSE_FILE_NAME = 'license.json'
 LICENSE_FILE_PATH = os.path.join(os.getcwd(), LICENSE_FILE_NAME)
-
-# مسار المفتاح العام للتحقق من التوقيع
 PUBLIC_KEY_PATH = os.path.join(os.getcwd(), 'config', 'public_key.pem')
-
-# ----------------------------------------------------------------------
-# إعدادات التطبيق العامة (General App Settings)
-# ----------------------------------------------------------------------
+LICENSE_FILE_PATH = 'license.json'
+PUBLIC_KEY_PATH = 'config/public_key.pem' 
+# --- إعدادات التطبيق العامة ---
 APP_TITLE = "Appointment Management System"
-DEFAULT_LANGUAGE = 'ar' # اللغة الافتراضية عند أول تشغيل
+DEFAULT_LANGUAGE = 'ar' 
 
-# ----------------------------------------------------------------------
-# إعدادات حالة المواعيد (Appointment Status Constants)
-# ----------------------------------------------------------------------
+# --- إعدادات حالة المواعيد ---
 STATUS_CONFIRMED = 'Confirmed'
 STATUS_ATTENDED = 'Attended'
 STATUS_ABSENT = 'Absent'
 STATUS_CANCELLED = 'Cancelled'
+ALL_STATUSES = [STATUS_CONFIRMED, STATUS_ATTENDED, STATUS_ABSENT, STATUS_CANCELLED]
 
-ALL_STATUSES = [
-    STATUS_CONFIRMED,
-    STATUS_ATTENDED,
-    STATUS_ABSENT,
-    STATUS_CANCELLED,
+# --- مفاتيح التنسيق الافتراضية (Theme Keys) ---
+# تستخدم كدليل عند تهيئة جدول 'theme' لأول مرة
+THEME_KEYS = [
+    "Primary", "Primary_Light", "Primary_Dark",
+    "Secondary", "Secondary_Light", "Secondary_Dark",
+    "Neutral_Dark", "Neutral_Medium", "Neutral_Light",
+    "Background", "Surface_Cards", "Error", "Warning", "Success",
+    "Primary_font", "Headings_font"
 ]

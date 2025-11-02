@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS "Translations" (
 	"translation_id" INTEGER PRIMARY KEY,
 	"key" VARCHAR NOT NULL UNIQUE,
 	"ar" TEXT,
-	"fr" TEXT
+	"fr" TEXT,
+    "en" TEXT
 );""",
 
 """ 
@@ -143,30 +144,176 @@ CREATE TABLE IF NOT EXISTS "Invoices" (
 
 """ 
 CREATE TABLE IF NOT EXISTS "theme" (
-	"id" INTEGER PRIMARY KEY, 
-	"Primary_color" VARCHAR,
-	"Primary_Light" VARCHAR,
-	"Primary_Dark" VARCHAR,
-	"Secondary_color" VARCHAR,
-	"Secondary_Light" VARCHAR,
-	"Secondary_Dark" VARCHAR,
-	"Neutral_Dark" VARCHAR,
-	"Neutral_Medium" VARCHAR,
-	"Neutral_Light" VARCHAR,
-	"Background" VARCHAR,
-	"Surface_Cards" VARCHAR,
-	"Error" VARCHAR,
-	"Warning" VARCHAR,
-	"Success" VARCHAR,
-	"Primary_font" VARCHAR,
-	"Headings_font" VARCHAR,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,        -- الفئة (color, typography, button, etc.)
+    subcategory TEXT,              -- الفئة الفرعية (primary, secondary, etc.)
+    element_name TEXT NOT NULL,    -- اسم العنصر
+    property_name TEXT NOT NULL,   -- اسم الخاصية
+    property_value TEXT NOT NULL,  -- قيمة الخاصية
+    language TEXT,                 -- اللغة (ar, en) للطباعة
+    font_weight TEXT,              -- وزن الخط (للطباعة)
+    font_size TEXT,                -- حجم الخط (للطباعة)
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     "settings_id" INTEGER UNIQUE,
     FOREIGN KEY ("settings_id") REFERENCES "Settings"("id")
     ON UPDATE NO ACTION ON DELETE NO ACTION
 );
 """
 ]
+translations_keys = """
+INSERT INTO "Translations" ("key", "ar", "fr", "en") VALUES
+-- --- نصوص عامة ---
+('app_title', 'نظام إدارة المواعيد', 'Système de Rendez-vous', 'Appointment Manager'),
+('welcome_msg', 'أهلاً بك', 'Bienvenue', 'Welcome'),
 
+-- --- نصوص شاشة الترخيص (LicenseView) ---
+('activation_title', '🔑 تفعيل البرنامج', 'Activation du Programme', '🔑 Program Activation'),
+('step1_title', 'الخطوة 1: أرسل مُعرِّف الجهاز', 'Étape 1: Envoyez l''ID Machine', 'Step 1: Send Machine ID'),
+('copy_id', 'نسخ مُعرِّف الجهاز', 'Copier l''ID Machine', 'Copy Machine ID'),
+('step2_title', 'الخطوة 2: تحميل ملف الترخيص', 'Étape 2: Téléversez le fichier Licence', 'Step 2: Upload License File'),
+('select_license', 'اختيار ملف الترخيص', 'Choisir le Fichier Licence', 'Select License File'),
+('select_license_file', 'اختر ملف الترخيص', 'Sélectionnez Fichier Licence', 'Select License File'),
+('note_msg', 'ملاحظة: ضع ملف الترخيص المرسل في مجلد البرنامج ثم اضغط "اختيار".', 'Note: Placez le fichier dans le dossier de l''application.', 'Note: Place the file in the app folder then select it.'),
+('activation_success', '✅ تم التفعيل بنجاح! جاري التحويل...', 'Activation réussie !', '✅ Activation successful! Redirecting...'),
+('activation_failed', '❌ فشل التفعيل. السبب: ', 'Échec de l''activation. Raison: ', '❌ Activation failed. Reason: '),
+('invalid_file', 'الرجاء اختيار ملف ''license.json'' صحيح.', 'Veuillez sélectionner un fichier valide.', 'Please select a valid ''license.json'' file.'),
+('file_copied', 'تم نسخ الملف بنجاح. جاري محاولة التفعيل...', 'Fichier copié. Tentative d''activation...', 'File copied. Attempting activation...'),
+('no_file_selected', 'لم يتم اختيار أي ملف.', 'Aucun fichier sélectionné.', 'No file selected.'),
+('copy_failed', 'فشل نسخ الملف.', 'Échec de la copie du fichier.', 'File copy failed.'),
+
+-- --- نصوص شاشة تسجيل الدخول (LoginView) ---
+('login_title', 'تسجيل دخول موظف الاستقبال', 'Connexion Réceptionniste', 'Receptionist Login'),
+('username_label', 'اسم المستخدم', 'Nom d''utilisateur', 'Username'),
+('password_label', 'كلمة المرور', 'Mot de passe', 'Password'),
+('login_button', 'تسجيل الدخول', 'Se Connecter', 'Log In'),
+('empty_fields', 'الرجاء إدخال اسم المستخدم وكلمة المرور.', 'Veuillez remplir tous les champs.', 'Please fill in all fields.'),
+('wrong_password', 'كلمة المرور خاطئة.', 'Mot de passe incorrect.', 'Wrong password.'),
+('user_not_found', 'اسم المستخدم غير موجود.', 'Utilisateur non trouvé.', 'User not found.'),
+('version', 'الإصدار', 'Version', 'Version'),
+
+-- --- نصوص لوحة التحكم والإعدادات العامة (Dashboard / General) ---
+('dashboard_title', 'لوحة التحكم', 'Tableau de Bord', 'Dashboard'),
+('appointments_tab', 'المواعيد', 'Rendez-vous', 'Appointments'),
+('clients_tab', 'العملاء', 'Clients', 'Clients'),
+('reports_tab', 'التقارير', 'Rapports', 'Reports'),
+('settings_tab', 'الإعدادات', 'Paramètres', 'Settings'),
+('logout_btn', 'تسجيل الخروج', 'Déconnexion', 'Log Out'),
+
+-- --- نصوص إدارة المواعيد ---
+('new_appointment', 'موعد جديد', 'Nouveau Rendez-vous', 'New Appointment'),
+('date_label', 'التاريخ', 'Date', 'Date'),
+('time_label', 'الوقت', 'Heure', 'Time'),
+('duration_label', 'المدة (بالدقائق)', 'Durée (min)', 'Duration (min)'),
+('service_label', 'الخدمة / الغرض', 'Service / Objet', 'Service / Purpose'),
+('status_label', 'الحالة', 'Statut', 'Status'),
+('status_confirmed', 'مُؤكَّد', 'Confirmé', 'Confirmed'),
+('status_attended', 'حاضر', 'Présent', 'Attended'),
+('status_absent', 'غائب', 'Absent', 'Absent'),
+('status_cancelled', 'مُلغى', 'Annulé', 'Cancelled'),
+('save_btn', 'حفظ', 'Enregistrer', 'Save'),
+('cancel_btn', 'إلغاء', 'Annuler', 'Cancel'),
+
+-- --- نصوص التقارير ---
+('report_daily', 'التقرير اليومي', 'Rapport Journalier', 'Daily Report'),
+('report_weekly', 'التقرير الأسبوعي', 'Rapport Hebdomadaire', 'Weekly Report'),
+('report_monthly', 'التقرير الشهري', 'Rapport Mensuel', 'Monthly Report'),
+('stats_attendance', 'نسبة الحضور', 'Taux de Présence', 'Attendance Rate'),
+('stats_peak_hours', 'ساعات الذروة', 'Heures de Pointe', 'Peak Hours'),
+('print_btn', 'طباعة', 'Imprimer', 'Print'),
+
+-- --- نصوص الإعدادات ---
+('settings_company_info', 'معلومات الشركة', 'Infos Société', 'Company Info'),
+('settings_theme', 'مظهر التطبيق', 'Thème de l''App', 'App Theme'),
+('settings_working_hours', 'ساعات العمل', 'Heures de Travail', 'Working Hours'),
+('language_select', 'اللغة', 'Langue', 'Language');
+"""
+
+# إدخال بيانات الألوان
+default_theme_values = {""""
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+-- إدخال بيانات الألوان
+('color', 'primary', 'blue_trust', 'hex', '#2E86AB'),
+('color', 'primary', 'pure_white', 'hex', '#FFFFFF'),
+('color', 'primary', 'charcoal_black', 'hex', '#2A2D34'),
+('color', 'secondary', 'light_blue', 'hex', '#6BBAD6'),
+('color', 'secondary', 'light_gray', 'hex', '#F8F9FA'),
+('color', 'secondary', 'medium_gray', 'hex', '#E9ECEF'),
+('color', 'status', 'success_green', 'hex', '#4CAF50'),
+('color', 'status', 'warning_orange', 'hex', '#FF9800'),
+('color', 'status', 'danger_red', 'hex', '#F44336');
+""","""
+-- إدخال بيانات الطباعة العربية
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
+('typography', 'main_title', 'arabic_main_title', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Bold', '24px'),
+('typography', 'subtitle', 'arabic_subtitle', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'SemiBold', '18px'),
+('typography', 'normal_text', 'arabic_normal', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Regular', '16px'),
+('typography', 'secondary_text', 'arabic_secondary', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Light', '14px');
+""","""
+-- إدخال بيانات الطباعة الإنجليزية
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
+('typography', 'main_title', 'english_main_title', 'font_family', 'Inter', 'en', 'Bold', '24px'),
+('typography', 'subtitle', 'english_subtitle', 'font_family', 'Inter', 'en', 'SemiBold', '18px'),
+('typography', 'normal_text', 'english_normal', 'font_family', 'Inter', 'en', 'Regular', '16px'),
+('typography', 'secondary_text', 'english_secondary', 'font_family', 'Inter', 'en', 'Light', '14px');
+""","""
+-- إدخال بيانات الأزرار
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('button', 'primary', 'primary_button', 'background', '#2E86AB'),
+('button', 'primary', 'primary_button', 'text_color', '#FFFFFF'),
+('button', 'primary', 'primary_button', 'border_radius', '8px'),
+('button', 'primary', 'primary_button', 'box_shadow', '0px 2px 4px rgba(46, 134, 171, 0.2)'),
+('button', 'secondary', 'secondary_button', 'background', 'transparent'),
+('button', 'secondary', 'secondary_button', 'border', '1px solid #2E86AB'),
+('button', 'secondary', 'secondary_button', 'text_color', '#2E86AB'),
+('button', 'secondary', 'secondary_button', 'border_radius', '8px'),
+('button', 'hover', 'button_hover', 'box_shadow', '0px 4px 8px rgba(46, 134, 171, 0.3)'),
+('button', 'hover', 'button_hover', 'transform', 'translateY(-1px)');
+""","""
+-- إدخال بيانات الحقول والنماذج
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('form', 'input', 'input_field', 'background', '#FFFFFF'),
+('form', 'input', 'input_field', 'border', '1px solid #E9ECEF'),
+('form', 'input', 'input_field', 'border_radius', '6px'),
+('form', 'input', 'input_field', 'box_shadow', '0px 0px 0px 2px rgba(46, 134, 171, 0.1)'),
+('form', 'focus', 'input_focus', 'border', '1px solid #2E86AB'),
+('form', 'focus', 'input_focus', 'box_shadow', '0px 0px 0px 3px rgba(46, 134, 171, 0.15)');
+""","""
+-- إدخال بيانات الأيقونات
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('icon', 'style', 'line_icons', 'type', 'Line Icons'),
+('icon', 'style', 'line_icons', 'stroke_width', '1.5px'),
+('icon', 'size', 'main_icons', 'size', '20px'),
+('icon', 'size', 'secondary_icons', 'size', '16px'),
+('icon', 'color', 'icon_default', 'color', '#2A2D34'),
+('icon', 'color', 'icon_active', 'color', '#6BBAD6');
+""","""
+-- إدخال بيانات التقويم
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('calendar', 'current_day', 'current_day', 'background', '#2E86AB'),
+('calendar', 'current_day', 'current_day', 'text_color', '#FFFFFF'),
+('calendar', 'selected_day', 'selected_day', 'background', '#6BBAD6'),
+('calendar', 'selected_day', 'selected_day', 'text_color', '#FFFFFF'),
+('calendar', 'normal_day', 'normal_day', 'background', '#FFFFFF'),
+('calendar', 'normal_day', 'normal_day', 'text_color', '#2A2D34'),
+('calendar', 'appointment', 'confirmed', 'border_color', '#4CAF50'),
+('calendar', 'appointment', 'pending', 'border_color', '#FF9800'),
+('calendar', 'appointment', 'cancelled', 'border_color', '#E9ECEF'),
+('calendar', 'appointment', 'cancelled', 'text_decoration', 'line-through');
+""","""
+-- إدخال بيانات الرسوم المتحركة
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('animation', 'timing', 'default', 'duration', '0.3s'),
+('animation', 'timing', 'default', 'timing_function', 'ease-out'),
+('animation', 'types', 'animations', 'list', 'fade-in, slide-up, scale');
+""","""
+-- إدخال بيانات التباعد
+INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+('spacing', 'scale', 'base_unit', 'size', '8px'),
+('spacing', 'sizes', 'small', 'size', '8px'),
+('spacing', 'sizes', 'medium', 'size', '16px'),
+('spacing', 'sizes', 'large', 'size', '24px'),
+('spacing', 'sizes', 'xlarge', 'size', '32px');
+"""}
 
 class DatabaseManager:
     """
@@ -248,15 +395,17 @@ class DatabaseManager:
         except Exception as e:
             print(f"Error initializing database: {e}")
         print("=========== DBM ✅ Database schema initialized. ==========\n\n")
-    # def initialize_db(self):
-    #     """إنشاء الجداول إذا لم تكن موجودة"""
-    #     try:
-    #         self.execute_query(SCHEMA_SQL)
-    #         # التأكد من وجود سجل واحد للإعدادات والتراخيص (إذا لم يكن موجوداً)
-    #         self.set_default_settings()
-    #         self.set_default_license_info()
-    #     except Exception as e:
-    #         print(f"Error initializing database: {e}")
+
+        try:
+            print("DBM ⚙️ Inserting default translation keys...")
+            self.execute_query(translations_keys, commit=True)
+            for i in default_theme_values:
+                self.execute_query(i, commit=True)
+            print("DBM ✅  Default translation keys and theme values ensured.")
+        except Exception as e:
+            print(f"DBM ❌ Error inserting default translation keys or theme values: {e}")
+
+
 
 
 # ----------------------------------------------------------------------
@@ -329,6 +478,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"DBM ❌ Error setter license setting license info: {e}")
             return False
+    
     def get_license_info(self) -> Optional[Dict]:
         """استرداد معلومات الترخيص"""
         try:
@@ -341,40 +491,7 @@ class DatabaseManager:
 # أضف هذه الدوال في القسم الخاص بـ "دوال الإعدادات والتراخيص" في DatabaseManager
 
     def set_default_theme(self):
-        try:    # قيم افتراضية للتنسيق (يمكنك تعديلها لاحقاً)
-            """إنشاء سجل تنسيق افتراضي إذا كان الجدول فارغاً"""
-            default_colors = {
-                'id': 1,
-                'Primary_color': '#007ACC',
-                'Primary_Light': '#4CAAEB', 
-                'Primary_Dark': '#005F9A',
-                'Secondary_color': '#00B689',
-                'Secondary_Light': '#33D3A9',
-                'Secondary_Dark': '#009C6C',
-                'Neutral_Dark': '#1E1E1E',
-                'Neutral_Medium': '#6E6E6E',
-                'Neutral_Light': '#EDEDED',
-                'Background': '#F3F4F6',
-                'Surface_Cards': '#FFFFFF',
-                'Error': '#E53935',
-                'Warning': '#FFB300', 
-                'Success': '#43A047',
-                'Primary_font': 'Arial',
-                'Headings_font': 'Segoe UI',
-                'settings_id': 1
-            }
-        
-        
-            # إنشاء استعلام INSERT OR IGNORE لضمان عدم تكرار الإدخال
-            keys = ', '.join(default_colors.keys())
-            placeholders = ', '.join(['?'] * len(default_colors))
-            values = tuple(default_colors.values())
-
-            query = f"INSERT  OR REPLACE  INTO theme ({keys}) VALUES ({placeholders})"
-            self.execute_query(query, values, commit=True)
-        except Exception as e:
-            print(f"DBM ❌ Error setting default theme: {e}")
-            return False
+        pass  # يمكن تنفيذها إذا لزم الأمر
     
     def set_default_license_info(self):
         try:
@@ -388,13 +505,35 @@ class DatabaseManager:
     def get_theme_settings(self) -> Optional[Dict]:
         """استرداد جميع إعدادات التنسيق (Getter)"""
         try:
-            query = "SELECT * FROM theme WHERE id = 1"
-            result = self.execute_query(query, fetch_one=True)
+            query = "SELECT * FROM theme"
+            result = self.execute_query(query)
             return dict(result) if result else None
         except Exception as e:
             print(f"DBM ❌ Error getter theme retrieving theme settings: {e}")
             return None
     
+    def get_theme_by_category(self, category: str) -> List[Dict]:
+        """استرداد إعدادات التنسيق بناءً على الفئة (مثل color, typography, button)"""
+        try:
+            query = "SELECT * FROM theme WHERE category = ?"
+            results = self.execute_query(query, (category,))
+            return [dict(row) for row in results] if results else []
+        except Exception as e:
+            print(f"DBM ❌ Error getting theme by category: {e}")
+            return []
+        
+        
+    def get_theme_by_element(self, element_name: str) -> List[Dict]:
+        """استرداد إعدادات التنسيق بناءً على اسم العنصر (مثل primary_button, arabic_main_title)"""
+        try:
+            query = "SELECT * FROM theme WHERE element_name = ?"
+            results = self.execute_query(query, (element_name,))
+            return [dict(row) for row in results] if results else []
+        except Exception as e:
+            print(f"DBM ❌ Error getting theme by element: {e}")
+            return []
+        
+
     def update_theme_settings(self, data: Dict) -> bool:
         try:
             """تحديث إعدادات التنسيق (Setter)"""
@@ -632,18 +771,27 @@ class DatabaseManager:
     def get_translations(self) -> Dict[str, Dict[str, str]]:
         try:
             """استرداد جميع الترجمات لمدير الترجمة (Translation Manager)"""
-            query = "SELECT key, ar, fr FROM Translations"
+            query = "SELECT key, ar, fr, en FROM Translations"
             results = self.execute_query(query)
 
             # تحويل النتائج إلى قاموس: {'key': {'ar': 'النص', 'fr': 'Texte'}}
             translation_dict = {}
             for row in results:
-                translation_dict[row['key']] = {'ar': row['ar'], 'fr': row['fr']}
+                translation_dict[row['key']] = {'ar': row['ar'], 'fr': row['fr'], 'en': row['en']}
             return translation_dict
         except Exception as e:
             print(f"DBM ❌ Error getting translations: {e}")
             return {}
-    
+
+    def insert_translation(self, key: str, ar_text: str, fr_text: str, en_text: str) -> Optional[int]:
+        try:
+            """إدخال ترجمة جديدة"""
+            query = "INSERT INTO Translations (key, ar, fr, en) VALUES (?, ?, ?, ?)"
+            return self.execute_query(query, (key, ar_text, fr_text, en_text), commit=True)
+        except Exception as e:
+            print(f"DBM ❌ Error inserting translation: {e}")
+            return None
+
     def add_invoice(self, data: Dict) -> Optional[int]:
         try:
             """إنشاء فاتورة جديدة"""
@@ -676,3 +824,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"DBM ❌ Error getting invoice by appointment: {e}")
             return None
+
+
+
+    
