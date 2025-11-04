@@ -21,8 +21,34 @@ class LoginView(ft.Container):
         self.padding = 30
         self.theme = self.db.get_current_theme()
         self.translation = self.db.get_translations()
-        print("LoginView theme:", self.theme, type(self.theme))
-        print("LoginView translation:", self.translation, type(self.translation))
+        self.theme_category =  None
+        category = ("calendar","color","spacing","button","form","animation","typography","icon")
+        print("\n\n======================================")
+        print("---------- the theme data -----------")
+        print("======================================")
+        print("{")
+        for key in self.theme:
+            print(f"\"{key}\":", self.theme[key])
+        print("}")
+        print("\n\n======================================")
+        print("------- the translation data -------")
+        print("======================================")
+        print("{")
+        for i in self.translation:
+            print(f"\"{i}\":", self.translation[i])
+        print("}")
+
+        print("\n\n======================================")
+        print("------- the category theme -------")
+        print("======================================")
+        print("{")
+        for i in category:
+            print(f"==== {i} =====")
+            print(f"\"{i}\":", self.db.get_theme_by_category(i))
+        print("}")
+
+
+
         self.bgcolor = self.app.theme.get('Surface_Cards', ft.Colors.WHITE)
         self.border_radius = 10
         
