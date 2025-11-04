@@ -76,7 +76,7 @@ def main(page: ft.Page):
     run_database_tests()
     #db_manager = DatabaseManager(db_path=DB_PATH)
     # تحميل إعدادات التنسيق واللغة
-    theme_settings = db_manager.get_theme_settings() or {} # استخدام قاموس فارغ كاحتياط
+    theme_settings = db_manager.get_current_theme() or {} # استخدام قاموس فارغ كاحتياط
     settings = db_manager.get_settings()
     
     license_manager = LicenseManager(db_manager=db_manager)

@@ -1,3 +1,5 @@
+from functools import lru_cache
+import json
 import sqlite3
 import os
 from datetime import datetime
@@ -113,8 +115,7 @@ CREATE TABLE IF NOT EXISTS "Licenses" (
 	"last_check_date" TEXT
 );""",
 
-""" 
-
+"""
 CREATE TABLE IF NOT EXISTS "Audit_Logs" (
 	"log_id" INTEGER PRIMARY KEY,
 	"user_id" INTEGER,
@@ -141,25 +142,37 @@ CREATE TABLE IF NOT EXISTS "Invoices" (
 	FOREIGN KEY ("created_by_user_id") REFERENCES "Users"("user_id")
 	ON UPDATE NO ACTION ON DELETE NO ACTION
 );""",
-
-""" 
+"""
 CREATE TABLE IF NOT EXISTS "theme" (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category TEXT NOT NULL,        -- الفئة (color, typography, button, etc.)
-    subcategory TEXT,              -- الفئة الفرعية (primary, secondary, etc.)
-    element_name TEXT NOT NULL,    -- اسم العنصر
-    property_name TEXT NOT NULL,   -- اسم الخاصية
-    property_value TEXT NOT NULL,  -- قيمة الخاصية
-    language TEXT,                 -- اللغة (ar, en) للطباعة
-    font_weight TEXT,              -- وزن الخط (للطباعة)
-    font_size TEXT,                -- حجم الخط (للطباعة)
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    "settings_id" INTEGER UNIQUE,
-    FOREIGN KEY ("settings_id") REFERENCES "Settings"("id")
-    ON UPDATE NO ACTION ON DELETE NO ACTION
+	"theme_id" INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+	"theme_name" VARCHAR,
+	"settings_id" INTEGER,
+	"state" VARCHAR DEFAULT 'active',
+	"is_default" BOOLEAN DEFAULT 0,
+	FOREIGN KEY ("settings_id") REFERENCES "Settings"("id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION
+);""",
+"""
+CREATE TABLE IF NOT EXISTS "theme_details" (
+	"id" INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+	"category" VARCHAR,
+	"subcategory" VARCHAR,
+	"element_name" VARCHAR,
+	"property_name" VARCHAR,
+	"property_value" VARCHAR,
+	"language" VARCHAR,
+	"font_weight" VARCHAR,
+	"font_size" VARCHAR,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"theme_id" INTEGER NOT NULL,
+	FOREIGN KEY ("theme_id") REFERENCES "theme"("theme_id")
+	ON UPDATE CASCADE ON DELETE CASCADE
 );
 """
 ]
+
+
+# إدخال بيانات مفاتيح الترجمة   
 translations_keys = """
 INSERT INTO "Translations" ("key", "ar", "fr", "en") VALUES
 -- --- نصوص عامة ---
@@ -228,102 +241,120 @@ INSERT INTO "Translations" ("key", "ar", "fr", "en") VALUES
 ('language_select', 'اللغة', 'Langue', 'Language');
 """
 
-# إدخال بيانات الألوان
-default_theme_values = {""""
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
+
+
+#set theme default values
+default_theme_values = {""" 
+INSERT INTO theme (theme_name, settings_id, state, is_default) VALUES 
+('default_theme', 1, 'active', 1);
+""",
+"""
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات الألوان
-('color', 'primary', 'blue_trust', 'hex', '#2E86AB'),
-('color', 'primary', 'pure_white', 'hex', '#FFFFFF'),
-('color', 'primary', 'charcoal_black', 'hex', '#2A2D34'),
-('color', 'secondary', 'light_blue', 'hex', '#6BBAD6'),
-('color', 'secondary', 'light_gray', 'hex', '#F8F9FA'),
-('color', 'secondary', 'medium_gray', 'hex', '#E9ECEF'),
-('color', 'status', 'success_green', 'hex', '#4CAF50'),
-('color', 'status', 'warning_orange', 'hex', '#FF9800'),
-('color', 'status', 'danger_red', 'hex', '#F44336');
-""","""
+(1, 'color', 'primary', 'blue_trust', 'hex', '#2E86AB'),
+(1, 'color', 'primary', 'pure_white', 'hex', '#FFFFFF'),
+(1, 'color', 'primary', 'charcoal_black', 'hex', '#2A2D34'),
+(1, 'color', 'secondary', 'light_blue', 'hex', '#6BBAD6'),
+(1, 'color', 'secondary', 'light_gray', 'hex', '#F8F9FA'),
+(1, 'color', 'secondary', 'medium_gray', 'hex', '#E9ECEF'),
+(1, 'color', 'status', 'success_green', 'hex', '#4CAF50'),
+(1, 'color', 'status', 'warning_orange', 'hex', '#FF9800'),
+(1, 'color', 'status', 'danger_red', 'hex', '#F44336');
+""",
+
+"""
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
 -- إدخال بيانات الطباعة العربية
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
-('typography', 'main_title', 'arabic_main_title', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Bold', '24px'),
-('typography', 'subtitle', 'arabic_subtitle', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'SemiBold', '18px'),
-('typography', 'normal_text', 'arabic_normal', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Regular', '16px'),
-('typography', 'secondary_text', 'arabic_secondary', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Light', '14px');
-""","""
+(1, 'typography', 'main_title', 'arabic_main_title', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Bold', '24px'),
+(1, 'typography', 'subtitle', 'arabic_subtitle', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'SemiBold', '18px'),
+(1, 'typography', 'normal_text', 'arabic_normal', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Regular', '16px'),
+(1, 'typography', 'secondary_text', 'arabic_secondary', 'font_family', 'IBM Plex Sans Arabic', 'ar', 'Light', '14px');
+ """,
+ 
+"""
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
 -- إدخال بيانات الطباعة الإنجليزية
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value, language, font_weight, font_size) VALUES
-('typography', 'main_title', 'english_main_title', 'font_family', 'Inter', 'en', 'Bold', '24px'),
-('typography', 'subtitle', 'english_subtitle', 'font_family', 'Inter', 'en', 'SemiBold', '18px'),
-('typography', 'normal_text', 'english_normal', 'font_family', 'Inter', 'en', 'Regular', '16px'),
-('typography', 'secondary_text', 'english_secondary', 'font_family', 'Inter', 'en', 'Light', '14px');
-""","""
+(1, 'typography', 'main_title', 'english_main_title', 'font_family', 'Inter', 'en', 'Bold', '24px'),
+(1, 'typography', 'subtitle', 'english_subtitle', 'font_family', 'Inter', 'en', 'SemiBold', '18px'),
+(1, 'typography', 'normal_text', 'english_normal', 'font_family', 'Inter', 'en', 'Regular', '16px'),
+(1, 'typography', 'secondary_text', 'english_secondary', 'font_family', 'Inter', 'en', 'Light', '14px');
+""",
+""" 
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات الأزرار
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('button', 'primary', 'primary_button', 'background', '#2E86AB'),
-('button', 'primary', 'primary_button', 'text_color', '#FFFFFF'),
-('button', 'primary', 'primary_button', 'border_radius', '8px'),
-('button', 'primary', 'primary_button', 'box_shadow', '0px 2px 4px rgba(46, 134, 171, 0.2)'),
-('button', 'secondary', 'secondary_button', 'background', 'transparent'),
-('button', 'secondary', 'secondary_button', 'border', '1px solid #2E86AB'),
-('button', 'secondary', 'secondary_button', 'text_color', '#2E86AB'),
-('button', 'secondary', 'secondary_button', 'border_radius', '8px'),
-('button', 'hover', 'button_hover', 'box_shadow', '0px 4px 8px rgba(46, 134, 171, 0.3)'),
-('button', 'hover', 'button_hover', 'transform', 'translateY(-1px)');
-""","""
+(1, 'button', 'primary', 'primary_button', 'background', '#2E86AB'),
+(1, 'button', 'primary', 'primary_button', 'text_color', '#FFFFFF'),
+(1, 'button', 'primary', 'primary_button', 'border_radius', '8px'),
+(1, 'button', 'primary', 'primary_button', 'box_shadow', '0px 2px 4px rgba(46, 134, 171, 0.2)'),
+(1, 'button', 'secondary', 'secondary_button', 'background', 'transparent'),
+(1, 'button', 'secondary', 'secondary_button', 'border', '1px solid #2E86AB'),
+(1, 'button', 'secondary', 'secondary_button', 'text_color', '#2E86AB'),
+(1, 'button', 'secondary', 'secondary_button', 'border_radius', '8px'),
+(1, 'button', 'hover', 'button_hover', 'box_shadow', '0px 4px 8px rgba(46, 134, 171, 0.3)'),
+(1, 'button', 'hover', 'button_hover', 'transform', 'translateY(-1px)');
+""",
+""" 
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات الحقول والنماذج
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('form', 'input', 'input_field', 'background', '#FFFFFF'),
-('form', 'input', 'input_field', 'border', '1px solid #E9ECEF'),
-('form', 'input', 'input_field', 'border_radius', '6px'),
-('form', 'input', 'input_field', 'box_shadow', '0px 0px 0px 2px rgba(46, 134, 171, 0.1)'),
-('form', 'focus', 'input_focus', 'border', '1px solid #2E86AB'),
-('form', 'focus', 'input_focus', 'box_shadow', '0px 0px 0px 3px rgba(46, 134, 171, 0.15)');
-""","""
+(1, 'form', 'input', 'input_field', 'background', '#FFFFFF'),
+(1, 'form', 'input', 'input_field', 'border', '1px solid #E9ECEF'),
+(1, 'form', 'input', 'input_field', 'border_radius', '6px'),
+(1, 'form', 'input', 'input_field', 'box_shadow', '0px 0px 0px 2px rgba(46, 134, 171, 0.1)'),
+(1, 'form', 'focus', 'input_focus', 'border', '1px solid #2E86AB'),
+(1, 'form', 'focus', 'input_focus', 'box_shadow', '0px 0px 0px 3px rgba(46, 134, 171, 0.15)');
+""",
+""" 
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات الأيقونات
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('icon', 'style', 'line_icons', 'type', 'Line Icons'),
-('icon', 'style', 'line_icons', 'stroke_width', '1.5px'),
-('icon', 'size', 'main_icons', 'size', '20px'),
-('icon', 'size', 'secondary_icons', 'size', '16px'),
-('icon', 'color', 'icon_default', 'color', '#2A2D34'),
-('icon', 'color', 'icon_active', 'color', '#6BBAD6');
-""","""
+(1, 'icon', 'style', 'line_icons', 'type', 'Line Icons'),
+(1, 'icon', 'style', 'line_icons', 'stroke_width', '1.5px'),
+(1, 'icon', 'size', 'main_icons', 'size', '20px'),
+(1, 'icon', 'size', 'secondary_icons', 'size', '16px'),
+(1, 'icon', 'color', 'icon_default', 'color', '#2A2D34'),
+(1, 'icon', 'color', 'icon_active', 'color', '#6BBAD6');""",
+
+"""
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات التقويم
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('calendar', 'current_day', 'current_day', 'background', '#2E86AB'),
-('calendar', 'current_day', 'current_day', 'text_color', '#FFFFFF'),
-('calendar', 'selected_day', 'selected_day', 'background', '#6BBAD6'),
-('calendar', 'selected_day', 'selected_day', 'text_color', '#FFFFFF'),
-('calendar', 'normal_day', 'normal_day', 'background', '#FFFFFF'),
-('calendar', 'normal_day', 'normal_day', 'text_color', '#2A2D34'),
-('calendar', 'appointment', 'confirmed', 'border_color', '#4CAF50'),
-('calendar', 'appointment', 'pending', 'border_color', '#FF9800'),
-('calendar', 'appointment', 'cancelled', 'border_color', '#E9ECEF'),
-('calendar', 'appointment', 'cancelled', 'text_decoration', 'line-through');
-""","""
+(1, 'calendar', 'current_day', 'current_day', 'background', '#2E86AB'),
+(1, 'calendar', 'current_day', 'current_day','text_color', '#FFFFFF'),
+(1, 'calendar', 'selected_day', 'selected_day', 'background', '#6BBAD6'),
+(1, 'calendar', 'selected_day', 'selected_day', 'text_color', '#FFFFFF'),
+(1, 'calendar', 'normal_day', 'normal_day', 'background', '#FFFFFF'),
+(1, 'calendar', 'normal_day', 'normal_day', 'text_color', '#2A2D34'),
+(1, 'calendar', 'appointment', 'confirmed', 'border_color', '#4CAF50'),
+(1, 'calendar', 'appointment', 'pending', 'border_color', '#FF9800'),
+(1, 'calendar', 'appointment', 'cancelled', 'border_color', '#E9ECEF'),
+(1, 'calendar', 'appointment', 'cancelled', 'text_decoration', 'line-through'); """,
+"""
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات الرسوم المتحركة
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('animation', 'timing', 'default', 'duration', '0.3s'),
-('animation', 'timing', 'default', 'timing_function', 'ease-out'),
-('animation', 'types', 'animations', 'list', 'fade-in, slide-up, scale');
-""","""
+(1, 'animation', 'timing', 'default', 'duration', '0.3s'),
+(1, 'animation', 'timing', 'default', 'timing_function', 'ease-out'),
+(1, 'animation', 'types', 'animations', 'list', 'fade-in, slide-up, scale'); """,
+""" 
+INSERT INTO theme_details (theme_id, category, subcategory, element_name, property_name, property_value) VALUES
 -- إدخال بيانات التباعد
-INSERT INTO theme (category, subcategory, element_name, property_name, property_value) VALUES
-('spacing', 'scale', 'base_unit', 'size', '8px'),
-('spacing', 'sizes', 'small', 'size', '8px'),
-('spacing', 'sizes', 'medium', 'size', '16px'),
-('spacing', 'sizes', 'large', 'size', '24px'),
-('spacing', 'sizes', 'xlarge', 'size', '32px');
-"""}
+(1, 'spacing', 'scale', 'base_unit', 'size', '8px'),
+(1, 'spacing', 'sizes', 'small', 'size', '8px'),
+(1, 'spacing', 'sizes', 'medium', 'size', '16px'),
+(1, 'spacing', 'sizes', 'large', 'size', '24px'),
+(1, 'spacing', 'sizes', 'xlarge', 'size', '32px');"""
+}
+                        
+# إدخال بيانات الألوان
 
 class DatabaseManager:
     """
     مدير قاعدة البيانات: مسؤول عن الاتصال بقاعدة البيانات وتنفيذ جميع عمليات CRUD والتقارير.
-    """
+"""
 
     def __init__(self, db_path: str = DB_NAME):
         self.db_path = db_path
         self._conn = None
         self._cursor = None
+        self._current_theme_cache = None
+        self._current_theme_id = None
         self.initialize_db()
 
     def _connect(self):
@@ -354,7 +385,7 @@ class DatabaseManager:
     def execute_query(self, query: str, params: Optional[Tuple] = None, fetch_one: bool = False, commit: bool = False) -> Any:
         """دالة عامة لتنفيذ الاستعلامات"""
         self._connect()
-        print(f"\n\n = ========DBM ⚙️ Executing query in table: {query[12:50]}  ")
+        print(f"\n\n = ========DBM ⚙️ Executing query in table: {query[0:50]}  ")
         try:
             if params is None:
                 params = ()
@@ -396,12 +427,19 @@ class DatabaseManager:
             print(f"Error initializing database: {e}")
         print("=========== DBM ✅ Database schema initialized. ==========\n\n")
 
-        try:
-            print("DBM ⚙️ Inserting default translation keys...")
-            self.execute_query(translations_keys, commit=True)
-            for i in default_theme_values:
-                self.execute_query(i, commit=True)
-            print("DBM ✅  Default translation keys and theme values ensured.")
+        try: 
+            #check if default translation keys exist, if not insert them
+            existing_keys = self.execute_query("SELECT COUNT(*) as count FROM Translations")
+            if existing_keys and existing_keys[0]['count'] == 0:
+                self.execute_query(translations_keys, commit=True)
+                print("DBM ✅  Default translation keys ensured.")
+
+            #and if default theme values not exist insert them
+            if not self.get_default_theme():
+                for i in default_theme_values:
+                    self.execute_query(i, commit=True)
+                    print("DBM ✅  Default translation keys and theme values ensured.")
+
         except Exception as e:
             print(f"DBM ❌ Error inserting default translation keys or theme values: {e}")
 
@@ -488,11 +526,7 @@ class DatabaseManager:
         except Exception as e:
             print(f"DBM ❌ Error getter license retrieving license info: {e}")
             return None
-# أضف هذه الدوال في القسم الخاص بـ "دوال الإعدادات والتراخيص" في DatabaseManager
 
-    def set_default_theme(self):
-        pass  # يمكن تنفيذها إذا لزم الأمر
-    
     def set_default_license_info(self):
         try:
             """إنشاء سجل ترخيص افتراضي إذا كان الجدول فارغًا"""
@@ -501,18 +535,228 @@ class DatabaseManager:
         except Exception as e:
             print(f"DBM ❌ Error setting default license info: {e}")
             return False
+# أضف هذه الدوال في القسم الخاص بـ "دوال الإعدادات والتراخيص" في DatabaseManager
 
-    def get_theme_settings(self) -> Optional[Dict]:
-        """استرداد جميع إعدادات التنسيق (Getter)"""
+
+#=========== theme management functions ===========
+
+    def get_default_theme(self) -> Optional[int]:
+        """الحصول على معرف الثيم الافتراضي"""
         try:
-            query = "SELECT * FROM theme"
+            query = "SELECT theme_id FROM theme WHERE is_default = 1 AND state = 'active' LIMIT 1"
             result = self.execute_query(query)
-            return dict(result) if result else None
+            return result[0]['theme_id'] if result else None
         except Exception as e:
-            print(f"DBM ❌ Error getter theme retrieving theme settings: {e}")
+            print(f"❌ Error getting default theme: {e}")
+            return None
+        
+    @lru_cache(maxsize=10)
+    def get_theme_data(self, theme_id: Optional[int] = None) -> Dict[str, Dict]:
+        """استرداد بيانات الثيم مع caching"""
+        try:
+            if theme_id is None:
+                theme_id = self.get_default_theme()
+                if theme_id is None:
+                    return {}
+            
+            query = """
+            SELECT td.category, td.subcategory, td.element_name, 
+                   td.property_name, td.property_value, td.language,
+                   td.font_weight, td.font_size, t.theme_name
+            FROM theme_details td
+            JOIN theme t ON td.theme_id = t.theme_id
+            WHERE td.theme_id = ?
+            """
+            results = self.execute_query(query, (theme_id,))
+            
+            if not results:
+                return {}
+            
+            organized_theme = self._organize_theme_data(results)
+            self._current_theme_cache = organized_theme
+            self._current_theme_id = theme_id
+            
+            return organized_theme
+            
+        except Exception as e:
+            print(f"❌ Error retrieving theme data: {e}")
+            return {}
+    
+    
+    def _organize_theme_data(self, results: List) -> Dict[str, Dict]:
+        """تنظيم بيانات الثيم في هيكل هرمي"""
+        theme_dict = {}
+        
+        for row in results:
+            row_dict = dict(row)
+            category = row_dict['category']
+            subcategory = row_dict['subcategory']
+            element_name = row_dict['element_name']
+            property_name = row_dict['property_name']
+            property_value = row_dict['property_value']
+            language = row_dict['language']
+            
+            # بناء الهيكل الهرمي
+            if category not in theme_dict:
+                theme_dict[category] = {}
+            
+            if subcategory:
+                if subcategory not in theme_dict[category]:
+                    theme_dict[category][subcategory] = {}
+                
+                key = f"{element_name}_{language}" if language else element_name
+                
+                if key not in theme_dict[category][subcategory]:
+                    theme_dict[category][subcategory][key] = {
+                        'property_value': property_value,
+                        'font_weight': row_dict.get('font_weight'),
+                        'font_size': row_dict.get('font_size')
+                    }
+                else:
+                    theme_dict[category][subcategory][key][property_name] = property_value
+            else:
+                if element_name not in theme_dict[category]:
+                    theme_dict[category][element_name] = {}
+                
+                theme_dict[category][element_name][property_name] = property_value
+        
+        return theme_dict
+    
+    def get_current_theme(self) -> Dict[str, Dict]:
+        """الحصول على الثيم الحالي (مع caching)"""
+        if self._current_theme_cache is None:
+            self._current_theme_cache = self.get_theme_data()
+        return self._current_theme_cache
+    
+
+    def get_theme_by_category(self, category: str) -> Dict:
+        """استرداد إعدادات فئة محددة"""
+        theme_data = self.get_current_theme()
+        return theme_data.get(category, {})
+    
+    def get_color(self, color_name: str) -> str:
+        """استرداد لون محدد بسهولة"""
+        colors = self.get_theme_by_category('color')
+        for subcategory in colors.values():
+            for element_name, properties in subcategory.items():
+                if color_name in element_name and 'property_value' in properties:
+                    return properties['property_value']
+        return ''
+    
+    def get_font_style(self, language: str, font_type: str) -> Dict:
+        """استرداد إعدادات الخط"""
+        typography = self.get_theme_by_category('typography')
+        search_key = f"{font_type}_{language}"
+        
+        for subcategory in typography.values():
+            for element_name, properties in subcategory.items():
+                if search_key in element_name:
+                    return {
+                        'font_family': properties.get('property_value', ''),
+                        'font_weight': properties.get('font_weight', ''),
+                        'font_size': properties.get('font_size', '')
+                    }
+        return {}
+    
+    def export_theme_to_json(self, theme_id: Optional[int] = None, file_path: str = "theme_export.json") -> bool:
+        """تصدير الثيم إلى ملف JSON"""
+        try:
+            theme_data = self.get_theme_data(theme_id)
+            export_data = {
+                'metadata': {
+                    'exported_at': datetime.now().isoformat(),
+                    'theme_id': theme_id or self._current_theme_id,
+                    'theme_name': theme_data.get('_metadata', {}).get('theme_name', '')
+                },
+                'theme': theme_data
+            }
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(export_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"✅ Theme exported successfully to {file_path}")
+            return True
+        except Exception as e:
+            print(f"❌ Error exporting theme to JSON: {e}")
+            return False
+        
+    def import_theme_from_json(self, file_path: str, theme_name: str = "imported_theme") -> Optional[int]:
+        """استيراد ثيم من ملف JSON"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                import_data = json.load(f)
+            
+            theme_data = import_data.get('theme', {})
+            
+            # إنشاء ثيم جديد
+            query = "INSERT INTO theme (theme_name, state) VALUES (?, 'active') RETURNING theme_id"
+            result = self.db_manager.execute_query(query, (theme_name,))
+            
+            if not result:
+                return None
+            
+            new_theme_id = result[0]['theme_id']
+            
+            # إدخال البيانات التفصيلية
+            self._insert_theme_details(new_theme_id, theme_data)
+            
+            # مسح الكاش
+            self.get_theme_data.cache_clear()
+            self._current_theme_cache = None
+            
+            print(f"✅ Theme imported successfully with ID: {new_theme_id}")
+            return new_theme_id
+            
+        except Exception as e:
+            print(f"❌ Error importing theme from JSON: {e}")
             return None
     
-    def get_theme_by_category(self, category: str) -> List[Dict]:
+
+    def _insert_theme_details(self, theme_id: int, theme_data: Dict):
+        """إدخال البيانات التفصيلية للثيم (دالة مساعدة)"""
+        for category, category_data in theme_data.items():
+            if isinstance(category_data, dict):
+                for subcategory, subcategory_data in category_data.items():
+                    if isinstance(subcategory_data, dict):
+                        for element_name, element_data in subcategory_data.items():
+                            if isinstance(element_data, dict):
+                                for property_name, property_value in element_data.items():
+                                    if property_name not in ['font_weight', 'font_size']:
+                                        query = """
+                                        INSERT INTO theme_details 
+                                        (theme_id, category, subcategory, element_name, property_name, property_value)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                        """
+                                        self.db_manager.execute_query(
+                                            query, 
+                                            (theme_id, category, subcategory, element_name, property_name, property_value)
+                                        )
+    
+    def switch_theme(self, theme_id: int) -> bool:
+        """تبديل الثيم الحالي"""
+        try:
+            # التحقق من وجود الثيم
+            query = "SELECT theme_id FROM theme WHERE theme_id = ? AND state = 'active'"
+            result = self.execute_query(query, (theme_id,))
+            
+            if not result:
+                print(f"❌ Theme with ID {theme_id} not found or not active")
+                return False
+            
+            # مسح الكاش وتحميل الثيم الجديد
+            self.get_theme_data.cache_clear()
+            self._current_theme_cache = self.get_theme_data(theme_id)
+            
+            print(f"✅ Switched to theme ID: {theme_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error switching theme: {e}")
+            return False
+    
+    
+
+    
         """استرداد إعدادات التنسيق بناءً على الفئة (مثل color, typography, button)"""
         try:
             query = "SELECT * FROM theme WHERE category = ?"

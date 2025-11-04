@@ -19,6 +19,10 @@ class LoginView(ft.Container):
         
         self.width = 400
         self.padding = 30
+        self.theme = self.db.get_current_theme()
+        self.translation = self.db.get_translations()
+        print("LoginView theme:", self.theme, type(self.theme))
+        print("LoginView translation:", self.translation, type(self.translation))
         self.bgcolor = self.app.theme.get('Surface_Cards', ft.Colors.WHITE)
         self.border_radius = 10
         
