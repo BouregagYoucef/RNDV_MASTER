@@ -36,19 +36,33 @@ class TranslationManager:
             self._translations = {}
 
     def set_language(self, lang_code: str):
-        """تغيير اللغة الحالية للتطبيق وحفظها في قاعدة البيانات."""
-        if lang_code in ['ar', 'fr']:
+        """تغيير اللغة الحالية للتطبيق وحفظها في قاعدة البيانات.
+        Args:
+            lang_code (str): رمز اللغة الجديد (مثل 'ar'، 'fr'، 'en').
+        Returns: None
+        """
+        if lang_code in ['ar', 'fr', 'en']:
             self._current_language = lang_code
             # تحديث اللغة في جدول Settings
             self._db.update_settings({'language': lang_code})
 
     def get_language(self) -> str:
-        """إرجاع اللغة الحالية."""
+        """إرجاع اللغة الحالية.
+        Args: None
+        Returns:
+            str: رمز اللغة الحالي.
+        """
         return self._current_language
 
     def get_text(self, key: str, default_text: str = "TEXT_MISSING") -> str:
         """
         استرداد النص المترجم بناءً على المفتاح (key) واللغة الحالية.
+
+        Args:
+            key (str): مفتاح النص المطلوب ترجمته.
+            default_text (str): النص الافتراضي إذا لم يتم العثور على الترجمة.
+        Returns:
+            str: النص المترجم أو النص الافتراضي إذا لم تتوفر الترجمة
         """
         key_translations = self._translations.get(key, {})
         text = key_translations.get(self._current_language)
@@ -58,7 +72,11 @@ class TranslationManager:
         
         return default_text
     def get_all_translations(self) -> Dict[str, Dict[str, str]]:
-        """إرجاع جميع الترجمات المحملة."""
+        """إرجاع جميع الترجمات المحملة.
+        Args: None
+        Returns:
+            Dict[str, Dict[str, str]]: قاموس يحتوي على جميع الترجمات.
+        """
         print("TraM-get_all ✅ Returning all translations.")
         print(self._translations)
         return self._translations

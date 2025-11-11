@@ -29,17 +29,18 @@ CREATE TABLE IF NOT EXISTS "Settings" (
 """ 
 
 CREATE TABLE IF NOT EXISTS "Users" (
-	"user_id" INTEGER PRIMARY KEY,
+	"user_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"username" VARCHAR NOT NULL UNIQUE,
 	"password_hash" VARCHAR NOT NULL,
 	"full_name" VARCHAR,
-	"is_active" BOOLEAN DEFAULT 1 -- SQLite uses 1 for True, 0 for False
+	"is_active" BOOLEAN DEFAULT 1 ,-- SQLite uses 1 for True, 0 for False
+    "role" VARCHAR DEFAULT 'receptionist'
 );""",
 
 """ 
 
 CREATE TABLE IF NOT EXISTS "Clients" (
-	"client_id" INTEGER PRIMARY KEY,
+	"client_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"full_name" VARCHAR NOT NULL,
 	"phone_number" VARCHAR UNIQUE,
 	"email" VARCHAR,
@@ -50,7 +51,7 @@ CREATE TABLE IF NOT EXISTS "Clients" (
 """ 
 
 CREATE TABLE IF NOT EXISTS "Services" (
-	"service_id" INTEGER PRIMARY KEY,
+	"service_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"name_ar" VARCHAR NOT NULL,
 	"name_fr" VARCHAR,
 	"price" REAL DEFAULT 0.0,
@@ -61,7 +62,7 @@ CREATE TABLE IF NOT EXISTS "Services" (
 """ 
 
 CREATE TABLE IF NOT EXISTS "Appointments" (
-	"appointment_id" INTEGER PRIMARY KEY,
+	"appointment_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"client_id" INTEGER NOT NULL,
 	"user_id" INTEGER NOT NULL,
 	"service_id" INTEGER,
@@ -85,7 +86,7 @@ CREATE TABLE IF NOT EXISTS "Appointments" (
 """ 
 
 CREATE TABLE IF NOT EXISTS "Translations" (
-	"translation_id" INTEGER PRIMARY KEY,
+	"translation_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"key" VARCHAR NOT NULL UNIQUE,
 	"ar" TEXT,
 	"fr" TEXT,
@@ -117,7 +118,7 @@ CREATE TABLE IF NOT EXISTS "Licenses" (
 
 """
 CREATE TABLE IF NOT EXISTS "Audit_Logs" (
-	"log_id" INTEGER PRIMARY KEY,
+	"log_id" INTEGER PRIMARY KEY AUTOINCREMENT,
 	"user_id" INTEGER,
 	"timestamp" TEXT NOT NULL,
 	"action_type" VARCHAR NOT NULL,
@@ -130,8 +131,8 @@ CREATE TABLE IF NOT EXISTS "Audit_Logs" (
 """ 
 
 CREATE TABLE IF NOT EXISTS "Invoices" (
-	"invoice_id" INTEGER PRIMARY KEY,
-	"invoice_number" INTEGER NOT NULL UNIQUE,
+	"invoice_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"invoice_number" INTEGER NOT NULL UNIQUE AUTOINCREMENT,
 	"appointment_id" INTEGER NOT NULL UNIQUE,
 	"created_by_user_id" INTEGER NOT NULL,
 	"issue_date" TEXT NOT NULL,
@@ -451,6 +452,7 @@ class DatabaseManager:
 # ----------------------------------------------------------------------
 
     def set_default_settings(self):
+        """إنشاء سجل إعدادات افتراضي إذا لم يكن موجودًا"""
         try:
             """إنشاء سجل إعدادات افتراضي إذا كان الجدول فارغًا"""
             query = "INSERT INTO Settings (id, company_name, language,hardware_id) VALUES (1, 'Appointment Manager', 'ar', 'dummy_hardware_id')"
@@ -460,7 +462,14 @@ class DatabaseManager:
             print(f"DBM ❌ Error setting default settings: {e}")
 
     def get_settings(self) -> Optional[Dict]:
-        """استرداد جميع الإعدادات"""
+        """استرداد جميع الإعدادات
+        Args:
+            None
+        Returns:
+            Optional[Dict]: {'id': 1, 'company_name': 'Appointment Manager', 'language': 'ar','logo_path': 'path','working_days': 'Saturday, Sunday','start_time': '09:00','end_time': '17:00','phone_numbers': '123456789','emails': 'info@example.com','hardware_id': 'dummy_hardware_id'}
+              قاموس يحتوي على إعدادات التطبيق أو None إذا لم توجد
+        """
+
         try:
             query = "SELECT * FROM Settings"
             result = self.execute_query(query, fetch_one=True)
@@ -471,6 +480,12 @@ class DatabaseManager:
             return None
     
     def update_settings(self, data: Dict) -> bool:
+        """تحديث الإعدادات
+        Args:
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، e.g., {'company_name': 'Appointment Manager', 'language': 'ar','logo_path': 'path','working_days': 'Saturday, Sunday','start_time': '09:00','end_time': '17:00','phone_numbers': '123456789','emails': 'info@example.com','hardware_id': 'dummy_hardware_id'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """
         try:
             """تحديث حقول الإعدادات (Setters)"""
             # بناء جزء SET من الاستعلام ديناميكياً
@@ -484,6 +499,13 @@ class DatabaseManager:
             return False
         
     def set_device_info(self, data: Dict) -> bool:
+        """إدخال/تحديث معلومات الجهاز (Setter)
+        Args:
+            data (Dict): قاموس يحتوي على معلومات الجهاز، e.g., {'machine_id_hash': 'hash_value', 'bios_uuid': 'uuid_value', 'disk_serial': 'serial_value', 'mac_address': 'mac_value'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """
+
         try:
             # يتم استخدام INSERT OR REPLACE لضمان وجود سجل واحد فقط (بسبب قيد UNIQUE)
             keys = ', '.join(data.keys())
@@ -496,8 +518,14 @@ class DatabaseManager:
             return False
         
     def get_device_info(self) -> Optional[Dict]:
+        """استرداد معلومات الجهاز (Getter)
+        Args:
+            None
+        Returns:
+            Optional[Dict]:{'id': 1, 'machine_id_hash': 'hash_value', 'bios_uuid': 'uuid_value', 'disk_serial': 'serial_value', 'mac_address': 'mac_value'}
+              قاموس يحتوي على معلومات الجهاز، أو None إذا لم يتم العثور على سجل.
+        """
         try:
-            """استرداد معلومات الجهاز (Getter)"""
             query = "SELECT * FROM Device_Info WHERE id = 1"
             result = self.execute_query(query, fetch_one=True)
             return dict(result) if result else None
@@ -506,8 +534,14 @@ class DatabaseManager:
             return None
         
     def set_license_info(self, data: Dict) -> bool:
+        """إدخال/تحديث معلومات الترخيص
+        Args:
+            data (Dict): قاموس يحتوي على معلومات الترخيص، e.g., {'license_key': 'key_value', 'is_active': 1, 'machine_id_used': 'machine_id', 'issued_at': '2024-01-01', 'expires_at': '2025-01-01', 'signature_status': 'valid', 'last_check_date': '2024-06-01'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """
+
         try:
-            """إدخال/تحديث معلومات الترخيص"""
             keys = ', '.join(data.keys())
             placeholders = ', '.join(['?'] * len(data))
             values = tuple(data.values())
@@ -518,7 +552,13 @@ class DatabaseManager:
             return False
     
     def get_license_info(self) -> Optional[Dict]:
-        """استرداد معلومات الترخيص"""
+        """استرداد معلومات الترخيص
+        Args:
+            None
+        Returns:
+            Optional[Dict]:{'id': 1, 'license_key': 'key_value', 'is_active': 1, 'machine_id_used': 'machine_id', 'issued_at': '2024-01-01', 'expires_at': '2025-01-01', 'signature_status': 'valid', 'last_check_date': '2024-06-01'}
+              قاموس يحتوي على معلومات الترخيص، أو None إذا لم يتم العثور على سجل.
+        """
         try:
             query = "SELECT * FROM Licenses WHERE id = 1"
             result = self.execute_query(query, fetch_one=True)
@@ -528,8 +568,8 @@ class DatabaseManager:
             return None
 
     def set_default_license_info(self):
+        """إنشاء سجل ترخيص افتراضي إذا كان الجدول فارغًا"""
         try:
-            """إنشاء سجل ترخيص افتراضي إذا كان الجدول فارغًا"""
             query = "INSERT OR IGNORE INTO Licenses (id, is_active) VALUES (1, 0)"
             self.execute_query(query, commit=True)
         except Exception as e:
@@ -540,8 +580,36 @@ class DatabaseManager:
 
 #=========== theme management functions ===========
 
+    #============= theme ==============
+    def add_theme(self, data: dict) -> bool:
+        """
+        إدخال ثيم جديد
+        
+        Args:
+            data (dict): {'theme_name': 'Dark Theme', 'settings_id': 1, 'state': 'active', 'is_default': 0}
+        
+        Returns:
+            bool: True إذا تم الإدخال بنجاح، False خلاف ذلك.
+        """
+        try:
+            keys = ', '.join(data.keys())
+            placeholders = ', '.join(['?'] * len(data))
+            values = tuple(data.values())
+            query = f"INSERT INTO theme ({keys}) VALUES ({placeholders})"
+            return self.execute_query(query, values, commit=True) is not None
+        except Exception as e:
+            print(f"❌ Error inserting theme: {e}")
+            return False
+
     def get_default_theme(self) -> Optional[int]:
-        """الحصول على معرف الثيم الافتراضي"""
+        """
+        الحصول على معرف الثيم الافتراضي
+        Args:
+            None
+        Returns:
+            Optional[int]: معرف الثيم الافتراضي أو None إذا لم يكن موجودًا.
+        
+        """
         try:
             query = "SELECT theme_id FROM theme WHERE is_default = 1 AND state = 'active' LIMIT 1"
             result = self.execute_query(query)
@@ -549,7 +617,69 @@ class DatabaseManager:
         except Exception as e:
             print(f"❌ Error getting default theme: {e}")
             return None
+
+    def get_last_theme(self) -> Optional[int]:
+        """
+        الحصول على معرف آخر ثيم تم إدخاله
+        Args:
+            None
+        Returns:
+            Optional[int]: معرف آخر ثيم تم إدخاله أو None إذا لم يكن موجودًا.
         
+        """
+        try:
+            query = "SELECT theme_id FROM theme ORDER BY ROWID DESC LIMIT 1"
+            result = self.execute_query(query)
+            return result if result else None
+        except Exception as e :
+            print(f"DBM ❌ Error getting the last theme id : {e}")
+            return None
+
+    def set_default_theme(self, theme_id: int) -> bool:
+        """
+        تعيين ثيم كافتراضي
+        Args:
+            theme_id (int): معرف الثيم الذي سيتم تعيينه كافتراضي.
+        
+        Returns:
+            bool: True إذا تم التعيين بنجاح، False خلاف ذلك.
+        """
+        try:
+            # أولاً، إعادة تعيين الثيم الافتراضي الحالي
+            reset_query = "UPDATE theme SET is_default = 0 WHERE is_default = 1"
+            self.execute_query(reset_query, commit=True)
+            
+            # ثم تعيين الثيم الجديد كافتراضي
+            set_query = "UPDATE theme SET is_default = 1 WHERE theme_id = ?"
+            return self.execute_query(set_query, (theme_id,), commit=True) is not None
+        except Exception as e:
+            print(f"❌ Error setting default theme: {e}")
+            return False
+    
+    def update_theme_settings(self, data: Dict) -> bool:
+        """
+        تحديث إعدادات التنسيق (Setter)
+
+        Args:
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، مثل {'theme_name': 'Dark Theme', 'state': 'active', 'is_default': 0}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        
+        """
+        try:
+            if not data:
+                return False
+
+            # بناء جزء SET من الاستعلام ديناميكياً
+            set_parts = [f"{k} = ?" for k in data.keys() if k != 'id']
+            values = list(data.values())
+
+            query = f"UPDATE theme SET {', '.join(set_parts)} WHERE id = 1"
+            return self.execute_query(query, tuple(values), commit=True) is not None
+        except Exception as e:
+            print(f"DBM ❌ Error setter theme updating theme settings: {e}")
+            return False
+    #=========== theme elements ==========
     @lru_cache(maxsize=10)
     def get_theme_data(self, theme_id: Optional[int] = None) -> Dict[str, Dict]:
         """استرداد بيانات الثيم مع caching"""
@@ -581,7 +711,6 @@ class DatabaseManager:
         except Exception as e:
             print(f"❌ Error retrieving theme data: {e}")
             return {}
-    
     
     def _organize_theme_data(self, results: List) -> Dict[str, Dict]:
         """تنظيم بيانات الثيم في هيكل هرمي"""
@@ -623,19 +752,31 @@ class DatabaseManager:
         return theme_dict
     
     def get_current_theme(self) -> Dict[str, Dict]:
-        """الحصول على الثيم الحالي (مع caching)"""
+        """الحصول على الثيم الحالي (مع caching)
+        Returns:
+            Dict[str, Dict]: قاموس يحتوي على بيانات الثيم الحالي.
+        """
         if self._current_theme_cache is None:
             self._current_theme_cache = self.get_theme_data()
         return self._current_theme_cache
-    
 
     def get_theme_by_category(self, category: str) -> Dict:
-        """استرداد إعدادات فئة محددة"""
+        """استرداد إعدادات فئة محددة
+        Args:
+            category (str): الفئة التي سيتم استردادها (مثل 'color', 'typography', 'button').
+        Returns:
+            Dict: قاموس يحتوي على إعدادات الفئة المحددة.
+        """
         theme_data = self.get_current_theme()
         return theme_data.get(category, {})
     
     def get_color(self, color_name: str) -> str:
-        """استرداد لون محدد بسهولة"""
+        """استرداد لون محدد بسهولة
+        Args:
+            color_name (str): اسم اللون الذي سيتم استرداده (مثل 'blue_trust', 'pure_white').
+        Returns:
+            str: قيمة اللون (مثل '#2E86AB') أو سلسلة فارغة إذا لم يتم العثور عليه.
+        """
         colors = self.get_theme_by_category('color')
         for subcategory in colors.values():
             for element_name, properties in subcategory.items():
@@ -644,7 +785,13 @@ class DatabaseManager:
         return ''
     
     def get_font_style(self, language: str, font_type: str) -> Dict:
-        """استرداد إعدادات الخط"""
+        """استرداد إعدادات الخط
+        Args:
+            language (str): اللغة (مثل 'ar' أو 'en').
+            font_type (str): نوع الخط (مثل 'main_title', 'subtitle', 'normal', 'secondary').
+        Returns:
+            Dict: قاموس يحتوي على إعدادات الخط (مثل {'font_family': 'IBM Plex Sans Arabic', 'font_weight': 'Bold', 'font_size': '24px'}) أو قاموس فارغ إذا لم يتم العثور عليه.
+        """
         typography = self.get_theme_by_category('typography')
         search_key = f"{font_type}_{language}"
         
@@ -659,7 +806,13 @@ class DatabaseManager:
         return {}
     
     def export_theme_to_json(self, theme_id: Optional[int] = None, file_path: str = "theme_export.json") -> bool:
-        """تصدير الثيم إلى ملف JSON"""
+        """تصدير الثيم إلى ملف JSON
+        Args:
+            theme_id (Optional[int]): معرف الثيم الذي سيتم تصديره. إذا لم يتم تحديده، سيتم تصدير الثيم الافتراضي.
+            file_path (str): مسار ملف JSON الذي سيتم حفظ الثيم فيه.
+        Returns:
+            bool: True إذا تم التصدير بنجاح، False خلاف ذلك.
+        """
         try:
             theme_data = self.get_theme_data(theme_id)
             export_data = {
@@ -681,7 +834,13 @@ class DatabaseManager:
             return False
         
     def import_theme_from_json(self, file_path: str, theme_name: str = "imported_theme") -> Optional[int]:
-        """استيراد ثيم من ملف JSON"""
+        """استيراد ثيم من ملف JSON
+        Args:
+            file_path (str): مسار ملف JSON الذي يحتوي على بيانات الثيم.
+            theme_name (str): اسم الثيم الجديد الذي سيتم إنشاؤه.
+        Returns:
+            Optional[int]: معرف الثيم الجديد إذا تم الاستيراد بنجاح، None خلاف ذلك.
+        """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 import_data = json.load(f)
@@ -727,13 +886,19 @@ class DatabaseManager:
                                         (theme_id, category, subcategory, element_name, property_name, property_value)
                                         VALUES (?, ?, ?, ?, ?, ?)
                                         """
-                                        self.db_manager.execute_query(
+                                        self.execute_query(
                                             query, 
                                             (theme_id, category, subcategory, element_name, property_name, property_value)
                                         )
     
     def switch_theme(self, theme_id: int) -> bool:
-        """تبديل الثيم الحالي"""
+        """تبديل الثيم الحالي
+        
+        Args:
+            theme_id (int): معرف الثيم الذي سيتم التبديل إليه.
+        Returns:
+            bool: True إذا تم التبديل بنجاح، False خلاف ذلك.
+        """
         try:
             # التحقق من وجود الثيم
             query = "SELECT theme_id FROM theme WHERE theme_id = ? AND state = 'active'"
@@ -746,58 +911,191 @@ class DatabaseManager:
             # مسح الكاش وتحميل الثيم الجديد
             self.get_theme_data.cache_clear()
             self._current_theme_cache = self.get_theme_data(theme_id)
-            
+            self.set_default_theme(theme_id)
+
             print(f"✅ Switched to theme ID: {theme_id}")
             return True
             
         except Exception as e:
             print(f"❌ Error switching theme: {e}")
             return False
-    
-    
 
-    
-        """استرداد إعدادات التنسيق بناءً على الفئة (مثل color, typography, button)"""
+    def _get_default_theme_id(self) -> Optional[int]:
+        """الحصول على معرف الثيم الافتراضي"""
         try:
-            query = "SELECT * FROM theme WHERE category = ?"
-            results = self.execute_query(query, (category,))
-            return [dict(row) for row in results] if results else []
+            query = "SELECT theme_id FROM theme WHERE is_default = 1 AND state = 'active' LIMIT 1"
+            result = self.execute_query(query)
+            return result[0]['theme_id'] if result else None
         except Exception as e:
-            print(f"DBM ❌ Error getting theme by category: {e}")
-            return []
-        
-        
-    def get_theme_by_element(self, element_name: str) -> List[Dict]:
-        """استرداد إعدادات التنسيق بناءً على اسم العنصر (مثل primary_button, arabic_main_title)"""
-        try:
-            query = "SELECT * FROM theme WHERE element_name = ?"
-            results = self.execute_query(query, (element_name,))
-            return [dict(row) for row in results] if results else []
-        except Exception as e:
-            print(f"DBM ❌ Error getting theme by element: {e}")
-            return []
-        
+            print(f"DBM ❌ Error getting default theme ID: {e}")
+            return None
 
-    def update_theme_settings(self, data: Dict) -> bool:
+        
+    def update_theme_element(self, category: str, subcategory: str, element_name: str, 
+                            property_name: str, property_value: str, 
+                            theme_id: Optional[int] = None,
+                            language: Optional[str] = None,
+                            font_weight: Optional[str] = None,
+                            font_size: Optional[str] = None) -> bool:
+        """
+        تحديث خاصية معينة في عنصر الثيم
+        
+        Args:
+            category: الفئة (color, typography, button, etc.)
+            subcategory: الفئة الفرعية (primary, secondary, etc.)
+            element_name: اسم العنصر (blue_trust, primary_button, etc.)
+            property_name: اسم الخاصية (hex, background, font_family, etc.)
+            property_value: قيمة الخاصية الجديدة
+            theme_id: معرف الثيم (اختياري - يستخدم الافتراضي إذا لم يتم تحديد)
+            language: اللغة (للفئة typography)
+            font_weight: وزن الخط (للفئة typography)
+            font_size: حجم الخط (للفئة typography)
+        
+        Returns:
+            bool: True إذا نجح التحديث، False إذا فشل
+        """
         try:
-            """تحديث إعدادات التنسيق (Setter)"""
-            if not data:
+            if theme_id is None:
+                theme_id = self.get_default_theme()
+                if theme_id is None:
+                    print("❌ No default theme found")
+                    return False
+            
+            # بناء بيانات التحديث
+            update_data = {
+                'property_value': property_value
+            }
+            
+            # إضافة بيانات إضافية إذا كانت متوفرة
+            if language:
+                update_data['language'] = language
+            if font_weight:
+                update_data['font_weight'] = font_weight
+            if font_size:
+                update_data['font_size'] = font_size
+            
+            # بناء جزء SET من الاستعلام
+            set_parts = [f"{key} = ?" for key in update_data.keys()]
+            values = list(update_data.values())
+            
+            # بناء شروط WHERE
+            where_conditions = [
+                "theme_id = ?",
+                "category = ?", 
+                "subcategory = ?",
+                "element_name = ?",
+                "property_name = ?"
+            ]
+            where_values = [theme_id, category, subcategory, element_name, property_name]
+            
+            # إذا كانت لغة محددة، أضفها للشروط
+            if language:
+                where_conditions.append("language = ?")
+                where_values.append(language)
+            else:
+                where_conditions.append("language IS NULL")
+            
+            query = f"""
+            UPDATE theme_details 
+            SET {', '.join(set_parts)}
+            WHERE {' AND '.join(where_conditions)}
+            """
+            
+            # تنفيذ التحديث
+            result = self.execute_query(query, tuple(values + where_values), commit=True)
+            
+            if result is not None:
+                # مسح الكاش لإجبار إعادة التحميل
+                self.get_theme_data.cache_clear()
+                self._current_theme_cache = None
+                print(f"✅ Theme element updated successfully: {category}.{subcategory}.{element_name}.{property_name}")
+                return True
+            else:
+                print("❌ Failed to update theme element")
                 return False
-
-            # بناء جزء SET من الاستعلام ديناميكياً
-            set_parts = [f"{k} = ?" for k in data.keys() if k != 'id']
-            values = list(data.values())
-
-            query = f"UPDATE theme SET {', '.join(set_parts)} WHERE id = 1"
-            return self.execute_query(query, tuple(values), commit=True) is not None
+                
         except Exception as e:
-            print(f"DBM ❌ Error setter theme updating theme settings: {e}")
+            print(f"❌ Error updating theme element: {e}")
             return False
+
+
+
+
+    def add_theme_details_element(self, data: dict) -> bool:
+        """
+        إدخال تفاصيل عنصر ثيم جديدة
+        
+        Args:
+            data (dict): { 'category': 'color', 'subcategory': 'status', 'element_name': 'danger_red', 'property_name': 'hex', 'property_value': '#F44336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 }
+        
+        Returns:
+            bool: True إذا تم الإدخال بنجاح، False خلاف ذلك.
+        """
+
+        try:
+            default_theme_values = self.get_default_theme()
+            keys = ', '.join(data.keys())
+            data['theme_id'] = default_theme_values
+            placeholders = ', '.join(['?'] * len(data))
+            values = tuple(data.values())
+
+            query = f"""
+                INSERT INTO theme_details ({keys}) VALUES ({placeholders})
+            """
+            return self.execute_query(query, values, commit=True) is not None
+        except Exception as e:
+            print(f"DBM ❌ Error inserting theme_details: {e}")
+            return False
+
+    def add_complete_theme(self,data:dict,data_theme:dict) -> bool:
+        """
+        ادخال جميع بيانات الثيم 
+
+        Args:
+        data (dict): {'theme_name': 'Dark Theme', 'settings_id': 1, 'state': 'active', 'is_default': 0}
+
+        data_theme (dict) : {
+            1:{ 'category': 'color', 'subcategory': 'status', 'element_name': 'danger_red', 'property_name': 'hex', 'property_value': '#F44336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            2:{ 'category': 'color', 'subcategory': 'primary', 'element_name': '', 'property_name': 'hex', 'property_value': '#2E86AB','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            3:{ 'category': 'color', 'subcategory': 'secondary', 'element_name': '', 'property_name': 'hex', 'property_value': '#4AC336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            .... etc
+        
+        }
+
+        Return:            bool: True إذا تم الإدخال بنجاح، False خلاف ذلك.
+
+        """
+        
+        self.add_theme(data)
+        try:
+            if not data_theme:
+                return False
+            for key, value in data_theme.items():
+                data_element = value
+                data_element['theme_id'] = self.get_last_theme()
+                self.add_theme_details_element(data_element)
+
+
+        except Exception as e:
+            print(f"DBM ❌ Error inserting the complet theme {e}")
+            return False
+
+    
+
+    
 # ----------------------------------------------------------------------
 # 2. دوال المستخدمين والعملاء (Users & Clients)
 # ----------------------------------------------------------------------
 
     def add_user(self, data: Dict) -> Optional[int]:
+        """إضافة مستخدم جديد
+        Args: 
+            data (Dict):{'username': 'user1', 'password_hash': 'hashed_pw', 'full_name': 'User One', 'role': 'receptionist', 'created_at': '2024-06-01T12:00:00'}
+              قاموس يحتوي على الحقول التي سيتم إدخالها، e.g
+        Returns:
+            Optional[int]: معرف المستخدم الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+
         try:
             """إضافة موظف استقبال جديد"""
             keys = ', '.join(data.keys())
@@ -810,7 +1108,13 @@ class DatabaseManager:
             return None
 
     def get_user_by_username(self, username: str) -> Optional[Dict]:
-        """استرداد مستخدم بناءً على اسم المستخدم (لتسجيل الدخول)"""
+        """استرداد مستخدم بناءً على اسم المستخدم (لتسجيل الدخول)
+        Args:
+            username (str): اسم المستخدم الذي سيتم البحث عنه.
+        Returns:
+            Optional[Dict]: {'user_id': 1, 'username': 'user1', 'password_hash': 'hashed_pw', 'full_name': 'User One', 'role': 'receptionist', 'created_at': '2024-06-01T12:00:00'}
+                قاموس يحتوي على حقول المستخدم، أو None إذا لم يتم العثور على المستخدم.
+        """
         try:
             query = "SELECT * FROM Users WHERE username = ?"
             result = self.execute_query(query, (username,), fetch_one=True)
@@ -820,8 +1124,13 @@ class DatabaseManager:
             return None
     
     def add_client(self, data: Dict) -> Optional[int]:
+        """إضافة عميل جديد
+        Args:
+            data (Dict): {'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}
+        Returns:
+            Optional[int]: معرف العميل الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
         try:
-            """إضافة عميل جديد"""
             data['created_at'] = datetime.now().isoformat()
             keys = ', '.join(data.keys())
             placeholders = ', '.join(['?'] * len(data))
@@ -833,7 +1142,14 @@ class DatabaseManager:
             return None
         
     def get_client_details(self, client_id: int) -> Optional[Dict]:
-        """استرداد تفاصيل عميل واحد"""
+        """استرداد تفاصيل عميل واحد
+        Args:
+            client_id (int): معرف العميل الذي سيتم استرداد تفاصيله.
+
+        Returns:
+            Optional[Dict]: {'client_id': 1, 'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}
+                قاموس يحتوي على حقول العميل، أو None إذا لم يتم العثور على العميل.
+        """
         try:
             query = "SELECT * FROM Clients WHERE client_id = ?"
             result = self.execute_query(query, (client_id,), fetch_one=True)
@@ -843,8 +1159,13 @@ class DatabaseManager:
             return None
     
     def search_clients(self, search_term: str) -> List[Dict]:
+        """البحث عن عملاء بالاسم أو الهاتف (للإدخال و التقارير)
+        Args:
+            search_term (str): مصطلح البحث للبحث في حقول full_name أو phone_number.
+        Returns:
+            List[Dict]: [{'client_id': 1, 'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}]"""
+      
         try:
-            """البحث عن عملاء بالاسم أو الهاتف (للإدخال و التقارير)"""
             term = f'%{search_term}%'
             query = "SELECT client_id, full_name, phone_number, email FROM Clients WHERE full_name LIKE ? OR phone_number LIKE ?"
             results = self.execute_query(query, (term, term))
@@ -854,8 +1175,14 @@ class DatabaseManager:
             return []
 
     def get_client_appointments_history(self, client_id: int) -> List[Dict]:
+        """استرداد جميع مواعيد عميل محدد (لتتبع العميل)
+        Args:
+            client_id (int): معرف العميل الذي سيتم استرداد تاريخ مواعيده.
+        Returns:
+            List[Dict]: [{'appointment_id': 1, 'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00', 'service_name': 'Service One'}]
+        """
+
         try:
-            """استرداد جميع مواعيد عميل محدد (لتتبع العميل)"""
             query = """
             SELECT A.*, S.name_ar as service_name
             FROM Appointments A
@@ -872,8 +1199,32 @@ class DatabaseManager:
 # ----------------------------------------------------------------------
 # 3. دوال المواعيد والخدمات (Appointments & Services)
 # ----------------------------------------------------------------------
+    def add_service(self, data: Dict) -> Optional[int]:
+        """إضافة خدمة جديدة
+        Args:
+            data (Dict): {'name_ar': 'Service One', 'name_fr': 'Service Un', 'price': 50.0, 'duration_minutes': 30, 'is_active': 1}
+        Returns:
+            Optional[int]: معرف الخدمة الجديدة إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+         
 
+        try:
+            keys = ', '.join(data.keys())
+            placeholders = ', '.join(['?'] * len(data))
+            values = tuple(data.values())
+            query = f"INSERT INTO Services ({keys}) VALUES ({placeholders})"
+            return self.execute_query(query, values, commit=True)
+        except Exception as e:
+            print(f"DBM ❌ Error adding service: {e}")
+            return None
+    
     def add_appointment(self, data: Dict) -> Optional[int]:
+        """إضافة موعد جديد
+        Args:
+            data (Dict):{'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00'}
+        Returns:
+            Optional[int]: معرف الموعد الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
         try:
             """إضافة موعد جديد"""
             now = datetime.now().isoformat()
@@ -889,6 +1240,14 @@ class DatabaseManager:
             return None
 
     def update_appointment(self, appointment_id: int, data: Dict) -> bool:
+        """تحديث موعد موجود
+        
+        Args:
+            appointment_id (int): معرف الموعد الذي سيتم تحديثه.
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، e.g {'status': 'canceled', 'notes': 'Client called to cancel'}{'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.       
+        """
         try:
             
             """تحديث موعد موجود (تغيير الحالة، الوقت، إلخ)"""
@@ -904,14 +1263,21 @@ class DatabaseManager:
             return False
         
     def get_daily_appointments(self, date: str) -> List[Dict]:
+        """استرداد جميع المواعيد ليوم محدد (للرؤية اليومية)
+        Args:
+            date (str):  'YYYY-MM-DD' format التاريخ الذي سيتم استرداد المواعيد له.
+        Returns:
+            the result will be a list of dictionaries containing the appointment fields along with client_name, phone_number , service_name_ar, service_name_fr, ORDER start_time  e.g.,
+            List[Dict]:[{'appointment_id': 1,'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00', 'client_name': 'Client One', 'phone_number': '123456789', 'service_name_ar': 'Service One', 'service_name_fr': 'Service Un'}]
+        """
         try:    
-            """استرداد جميع المواعيد ليوم محدد (للرؤية اليومية)"""
             query = """
             SELECT 
                 A.*, 
                 C.full_name as client_name, 
                 C.phone_number,
-                S.name_ar as service_name
+                S.name_ar as service_name_ar,
+                S.name_fr as service_name_fr
             FROM Appointments A
             JOIN Clients C ON A.client_id = C.client_id
             LEFT JOIN Services S ON A.service_id = S.service_id
@@ -925,13 +1291,22 @@ class DatabaseManager:
             return []
         
     def get_weekly_appointments(self, start_date: str, end_date: str) -> List[Dict]:
+        """استرداد جميع المواعيد لمدى زمني محدد (للرؤية الأسبوعية/الشهرية)
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:the result will be a list of dictionaries containing the appointment fields along with client_name, service_name_ar, service_name_fr, date BETWEEN start_date, end_date ORDER BY appointments date, appointments start_time e.g.,
+            List[Dict]:[{'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'client_name': 'Client One', 'service_name_ar': 'Service One', 'service_name_fr': 'Service Un'}]
+        """
+  
         try:
             """استرداد جميع المواعيد لمدى زمني محدد (للرؤية الأسبوعية/الشهرية)"""
             query = """
             SELECT 
                 A.date, A.start_time, A.duration_minutes, A.status,
                 C.full_name as client_name, 
-                S.name_ar as service_name
+                S.name_ar as service_name_ar,
+                S.name_fr as service_name_fr
             FROM Appointments A
             JOIN Clients C ON A.client_id = C.client_id
             LEFT JOIN Services S ON A.service_id = S.service_id
@@ -945,8 +1320,14 @@ class DatabaseManager:
             return []
         
     def get_all_services(self) -> List[Dict]:
+        """استرداد جميع الخدمات المتاحة
+        Args:
+            None
+        Returns:the result will be a list of dictionaries containing the service fields, e.g.,
+            List[Dict]: [{'service_id': 1, 'name_ar': 'خدمة واحدة', 'name_fr': 'Service One', 'price': 100, 'duration_minutes': 30, 'is_active': 1}]
+        """
+
         try:
-            """استرداد قائمة بجميع الخدمات المتاحة"""
             query = "SELECT * FROM Services WHERE is_active = 1"
             results = self.execute_query(query)
             return [dict(row) for row in results] if results else []
@@ -960,6 +1341,13 @@ class DatabaseManager:
 # ----------------------------------------------------------------------
 
     def get_attendance_stats(self, start_date: str, end_date: str) -> List[Dict]:
+        """استرداد إحصائيات الحضور/الغياب/الإلغاء لفترة زمنية محددة
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:
+            List[Dict]: [{'status': 'confirmed', 'count': 10}, {'status': 'canceled', 'count': 5}]
+        """
         try:
             """تقارير الإحصاءات الذكية: نسبة الحضور/الغياب/الإلغاء"""
             query = """
@@ -977,7 +1365,14 @@ class DatabaseManager:
             return []
         
     def get_peak_hours_stats(self, start_date: str, end_date: str) -> List[Dict]:
-        """إحصائية ساعات الذروة (بناءً على بداية الساعة)"""
+        """إحصائية ساعات الذروة (بناءً على بداية الساعة)
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:
+            List[Dict]: [{'hour': '10', 'count': 15}, {'hour': '11', 'count': 10}]
+        """
+ 
         query = """
         SELECT 
             STRFTIME('%H', start_time) as hour, 
@@ -987,20 +1382,7 @@ class DatabaseManager:
         GROUP BY hour
         ORDER BY count DESC
         """
-        results = self.execute_query(query, (start_date, end_date))
-        return [dict(row) for row in results] if results else []
-
-    def get_peak_hours_stats(self, start_date: str, end_date: str) -> List[Dict]:
-        """إحصائية ساعات الذروة (بناءً على بداية الساعة)"""
-        query = """
-        SELECT 
-            STRFTIME('%H', start_time) as hour, 
-            COUNT(appointment_id) as count
-        FROM Appointments
-        WHERE date BETWEEN ? AND ? AND status IN ('Confirmed', 'Attended')
-        GROUP BY hour
-        ORDER BY count DESC
-        """
+        
         try:
             results = self.execute_query(query, (start_date, end_date))
             return [dict(row) for row in results] if results else []
@@ -1013,8 +1395,13 @@ class DatabaseManager:
 # ----------------------------------------------------------------------
 
     def get_translations(self) -> Dict[str, Dict[str, str]]:
+        """استرداد جميع الترجمات لمدير الترجمة (Translation Manager)
+        Args:
+            None
+        Returns:the result will be a dictionary in the format
+            Dict[str, Dict[str, str]]:  {'key': {'ar': 'النص', 'fr': 'Texte', 'en': 'Text'}}
+        """
         try:
-            """استرداد جميع الترجمات لمدير الترجمة (Translation Manager)"""
             query = "SELECT key, ar, fr, en FROM Translations"
             results = self.execute_query(query)
 
@@ -1028,8 +1415,16 @@ class DatabaseManager:
             return {}
 
     def insert_translation(self, key: str, ar_text: str, fr_text: str, en_text: str) -> Optional[int]:
+        """إدخال ترجمة جديدة
+        Args:
+            key (str): المفتاح الفريد للنص المترجم.
+            ar_text (str): الترجمة العربية.
+            fr_text (str): الترجمة الفرنسية.
+            en_text (str): الترجمة الإنجليزية.
+        Returns:
+            Optional[int]: معرف السجل الجديد إذا تم الإدخال بنجاح، None خلاف ذلك
+        """
         try:
-            """إدخال ترجمة جديدة"""
             query = "INSERT INTO Translations (key, ar, fr, en) VALUES (?, ?, ?, ?)"
             return self.execute_query(query, (key, ar_text, fr_text, en_text), commit=True)
         except Exception as e:
@@ -1037,6 +1432,13 @@ class DatabaseManager:
             return None
 
     def add_invoice(self, data: Dict) -> Optional[int]:
+        """إضافة فاتورة جديدة
+        Args:
+            data (Dict):{ 'appointment_id': 1, 'created_by_user_id': 1,'issue_date': '2023-01-01', 'total_amount': 150.0, 'payment_status': 'unpaid'}
+        Returns:
+            Optional[int]: معرف الفاتورة الجديدة إذا تم الإدخال بنجاح، None خلاف
+        """    
+
         try:
             """إنشاء فاتورة جديدة"""
             data['issue_date'] = datetime.now().isoformat()
@@ -1050,7 +1452,12 @@ class DatabaseManager:
             return None
         
     def get_invoice_by_appointment(self, appointment_id: int) -> Optional[Dict]:
-        """استرداد فاتورة بناءً على مُعرِّف الموعد (لطباعة الفاتورة)"""
+        """استرداد فاتورة بناءً على مُعرِّف الموعد (لطباعة الفاتورة)
+        Args:
+            appointment_id (int): مُعرِّف الموعد.
+        Returns:
+            Optional[Dict]: {'invoice_id': 1, 'invoice_number': 1001, 'appointment_id': 1, 'created_by_user_id': 1,'issue_date': '2023-01-01', 'total_amount': 150.0, 'payment_status': 'unpaid', 'client_name': 'Client One', 'date': '2024-06-10', 'start_time': '10:00'}
+        """
         query = """
         SELECT 
             I.*, 
@@ -1068,7 +1475,29 @@ class DatabaseManager:
         except Exception as e:
             print(f"DBM ❌ Error getting invoice by appointment: {e}")
             return None
+# ----------------------------------------------------------------------
+# 6. دوال  (Audit_Logs & )
+# ----------------------------------------------------------------------
+    def create_audit_log(self, data: Dict) -> Optional[int]:
 
+        """إضافة سجل تدقيق جديد
+        Args:
+            data (Dict): قاموس يحتوي على الحقول التي سيتم إدخالها، e.g., {'user_id': 1, 'timestamp': '2024-06-01T12:00:00', 'action_type': 'create_appointment', 'details': 'Created appointment for client_id 1', 'related_data': ''}
+        Returns:
+            Optional[int]: معرف سجل التدقيق الجديد إذا تم الإدخال بنجاح، None خلاف
+        """
+
+
+        try:
+            data['timestamp'] = datetime.now().isoformat()
+            key = ', '.join(data.keys())
+            placeholders = ', '.join(['?'] * len(data))
+            values = tuple(data.values())
+            query = f"INSERT INTO Audit_Logs ({key}) VALUES ({placeholders})"
+            return self.execute_query(query, values, commit=True)
+        except Exception as e:
+            print(f"DBM ❌ Error creating audit log: {e}")
+            return None
 
 
     

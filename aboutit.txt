@@ -1,0 +1,872 @@
+"project details" = """
+
+using Python
+flet for GUI
+A desktop application for managing appointments, clients, and services with multilingual support (Arabic and French and English) and license verification.
+
+You are an expert senior Python + Flet application architect.
+Your task is to generate UI code according to the following complete architecture rules.
+
+🧠 Architecture Context (Important – Do Not Change):
+- The app is written in Python using Flet.
+- The entry point is main.py which contains main(page: ft.Page).
+- Global shared state is stored in an object named AppState and is passed to all views.
+
+AppState contains:
+    db              → DatabaseManager instance
+    license         → LicenseManager instance
+    tr              → TranslationManager instance
+    theme           → ThemeManager 
+    logged_in_user  → currently authenticated user
+
+✅ Routing:
+Navigation between views is done using a function inside main.py:
+_change_view(view_control):
+    page.clean()
+    page.add(view_control)
+
+Do NOT modify this routing mechanism.
+Each view must accept app_state in its constructor.
+
+✅ Views:
+Each view is located inside views/ and is a class inheriting from ft.Container.
+Example structure:
+class DashboardView(ft.Container):
+    def init(self, app_state):
+        super().init()
+        self.app_state = app_state
+        tr = app_state.tr
+        theme = app_state.theme
+        # Build UI using translation + theme managers only
+
+⚠️ Do Not Hardcode:
+- No hardcoded text → use tr.get_text("key", "default") (all commands you need are listed at the end )
+- No hardcoded colors or fonts → use db.get_current_theme() or get_theme_by_category(calendar) ...etc  (all commands you need are listed at the end )
+- No inline raw styling → always pull from theme manager
+- Direction must depend on language:
+    if language == "ar": text_direction = RTL and sidebar on the right
+    else: text_direction = LTR and sidebar on the left
+
+🌍 When language changes:
+- Update page.text_direction (RTL/LTR)
+- Reload translations dynamically (no restart)
+
+🎨 Global UI Style:
+- Modern minimal flat UI
+- Collapsible Sidebar (220px expanded, 70px collapsed)
+- Shadow card for main content
+- Smooth fade animation when switching views
+- Two themes exist (light & dark), loaded via app_state.theme
+
+📂 Navigation Structure (must be reflected in Sidebar):
+Dashboard
+Appointments
+Clients
+    ↳ ClientDetails
+Reports
+Settings
+    ↳ Profiles
+    ↳ Users
+    ↳ Themes
+    ↳ Languages
+    ↳ Translations
+    ↳ History
+Services
+
+📄 You must generate:
+1) Sidebar class (in a separate file)
+   - Receives app_state
+   - Calls callback: on_page_change("page_name")
+
+2) Placeholders for the following view files (all receiving app_state):
+- DashboardView
+- AppointmentsView
+- ClientsView
+- ClientDetailsView
+- ReportsView
+- SettingsView
+- ProfilesView
+- UsersView
+- ThemesView
+- LanguagesView
+- TranslationsView
+- HistoryView
+- ServicesView
+
+Each view should display placeholder content using:
+    tr.get_text("placeholder", "Placeholder")
+    theme ....etc
+
+🎁 Final Expectation:
+Generate clean, modular code, fully consistent with the architecture above.
+Do not modify main.py logic or AppState pattern.
+Only create UI structure and class-based views.
+
+"""
+
+******** tree of project ****************
+"the tree of my project" = """
+C:.
+│   .gitignore
+│   aboutit.py
+│   license.json
+│   main.py
+│   requirements.txt
+│   test_db.py
+│
+├───assets
+│   │   logo.png
+│   │
+│   └───languages
+│           ar.json
+│           fr.json
+│
+├───config
+│   │   appointment_manager.db
+│   │   public_key.pem
+│   │   settings.py
+│   │   __init__.py
+│   │
+│   └───__pycache__
+│           settings.cpython-314.pyc
+│           __init__.cpython-314.pyc
+│
+├───db
+│   │   database_manager.py
+│   │   schema.sql
+│   │   __init__.py
+│   │
+│   └───__pycache__
+│           database_manager.cpython-314.pyc
+│           __init__.cpython-314.pyc
+│
+├───utils
+│   │   license_handler.py
+│   │   machine_fingerprint.py
+│   │   translation_manager.py
+│   │   __init__.py
+│   │
+│   └───__pycache__
+│           license_handler.cpython-314.pyc
+│           machine_fingerprint.cpython-314.pyc
+│           translation_manager.cpython-314.pyc
+│           __init__.cpython-314.pyc
+│
+├───views
+│   │   appointments_view.py
+│   │   clients_view.py
+│   │   dashboard_view.py
+│   │   license_view.py
+│   │   login_view.py
+│   │   settings_view.py
+│   │   __init__.py
+│   │
+│   └───__pycache__
+│           dashboard_view.cpython-314.pyc
+│           license_view.cpython-314.pyc
+│           login_view.cpython-314.pyc
+│           __init__.cpython-314.pyc
+│
+└───__pycache__
+        main.cpython-314.pyc
+
+"""
+
+******** DATABASE ****************
+"database_schema" = """
+
+"Settings" (
+	"id" INTEGER PRIMARY KEY,
+	"company_name" VARCHAR,
+	"language" VARCHAR,
+	"logo_path" VARCHAR,
+	"working_days" VARCHAR,
+	"start_time" TEXT, -- TEXT for TIME format (HH:MM)
+	"end_time" TEXT,    -- TEXT for TIME format (HH:MM)
+	"phone_numbers" VARCHAR,
+	"emails" VARCHAR,
+	"hardware_id" VARCHAR NOT NULL UNIQUE
+);""",
+
+""" 
+
+  TABLE "Users" (
+	"user_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"username" VARCHAR NOT NULL UNIQUE,
+	"password_hash" VARCHAR NOT NULL,
+	"full_name" VARCHAR,
+	"is_active" BOOLEAN DEFAULT 1, -- SQLite uses 1 for True, 0 for False
+	"role" VARCHAR DEFAULT 'receptionist'
+);""",
+
+""" 
+
+  TABLE "Clients" (
+	"client_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"full_name" VARCHAR NOT NULL,
+	"phone_number" VARCHAR UNIQUE,
+	"email" VARCHAR,
+	"notes" TEXT,
+	"created_at" TEXT -- TEXT for TIMESTAMP (ISO8601)
+);""",
+
+""" 
+
+  TABLE   "Services" (
+	"service_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"name_ar" VARCHAR NOT NULL,
+	"name_fr" VARCHAR,
+	"price" REAL DEFAULT 0.0,
+	"duration_minutes" INTEGER,
+	"is_active" BOOLEAN DEFAULT 1
+);""",
+
+""" 
+
+  TABLE  "Appointments" (
+	"appointment_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"client_id" INTEGER NOT NULL,
+	"user_id" INTEGER NOT NULL,
+	"service_id" INTEGER,
+	"date" TEXT NOT NULL, -- TEXT for DATE (YYYY-MM-DD)
+	"start_time" TEXT NOT NULL, -- TEXT for TIME (HH:MM)
+	"duration_minutes" INTEGER,
+	"status" VARCHAR NOT NULL,
+	"notes" VARCHAR,
+	"is_paid" BOOLEAN DEFAULT 0,
+	"reminder_set" BOOLEAN DEFAULT 0,
+	"created_at" TEXT,
+	"updated_at" TEXT,
+	FOREIGN KEY ("client_id") REFERENCES "Clients"("client_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION,
+	FOREIGN KEY ("user_id") REFERENCES "Users"("user_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION,
+	FOREIGN KEY ("service_id") REFERENCES "Services"("service_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION
+);""",
+
+""" 
+
+  TABLE "Translations" (
+	"translation_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"key" VARCHAR NOT NULL UNIQUE,
+	"ar" TEXT,
+	"fr" TEXT,
+    "en" TEXT
+);""",
+
+""" 
+
+  TABLE "Device_Info" (
+	"id" INTEGER PRIMARY KEY,
+	"machine_id_hash" VARCHAR NOT NULL UNIQUE,
+	"bios_uuid" VARCHAR,
+	"disk_serial" VARCHAR,
+	"mac_address" VARCHAR
+);""",
+
+""" 
+
+  TABLE "Licenses" (
+	"id" INTEGER PRIMARY KEY,
+	"license_key" VARCHAR NOT NULL default 'N/A',
+	"is_active" BOOLEAN DEFAULT 0,
+	"machine_id_used" VARCHAR,
+	"issued_at" TEXT,
+	"expires_at" TEXT,
+	"signature_status" VARCHAR,
+	"last_check_date" TEXT
+);""",
+
+"""
+  TABLE "Audit_Logs" (
+	"log_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"user_id" INTEGER,
+	"timestamp" TEXT NOT NULL,
+	"action_type" VARCHAR NOT NULL,
+	"details" VARCHAR,
+	"related_data" VARCHAR,
+	FOREIGN KEY ("user_id") REFERENCES "Users"("user_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION
+);""",
+
+""" 
+
+  TABLE "Invoices" (
+	"invoice_id" INTEGER PRIMARY KEY AUTOINCREMENT,
+	"invoice_number" INTEGER NOT NULL UNIQUE AUTOINCREMENT,
+	"appointment_id" INTEGER NOT NULL UNIQUE,
+	"created_by_user_id" INTEGER NOT NULL,
+	"issue_date" TEXT NOT NULL,
+	"total_amount" REAL DEFAULT 0.0,
+	"payment_status" VARCHAR NOT NULL,
+	FOREIGN KEY ("appointment_id") REFERENCES "Appointments"("appointment_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION,
+	FOREIGN KEY ("created_by_user_id") REFERENCES "Users"("user_id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION
+);""",
+"""
+  TABLE "theme" (
+	"theme_id" INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+	"theme_name" VARCHAR,
+	"settings_id" INTEGER,
+	"state" VARCHAR DEFAULT 'active',
+	"is_default" BOOLEAN DEFAULT 0,
+	FOREIGN KEY ("settings_id") REFERENCES "Settings"("id")
+	ON UPDATE NO ACTION ON DELETE NO ACTION
+);""",
+"""
+  TABLE "theme_details" (
+	"id" INTEGER NOT NULL UNIQUE PRIMARY KEY AUTOINCREMENT,
+	"category" VARCHAR,
+	"subcategory" VARCHAR,
+	"element_name" VARCHAR,
+	"property_name" VARCHAR,
+	"property_value" VARCHAR,
+	"language" VARCHAR,
+	"font_weight" VARCHAR,
+	"font_size" VARCHAR,
+	"created_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+	"theme_id" INTEGER NOT NULL,
+	FOREIGN KEY ("theme_id") REFERENCES "theme"("theme_id")
+	ON UPDATE CASCADE ON DELETE CASCADE
+);
+"""
+
+
+******** TRANSLATIONS ****************
+"the_result_of db.get_translations() OR 
+				TranslationManager.get_all_translations"="""
+{
+"app_title": {'ar': 'نظام إدارة المواعيد', 'fr': 'Système de Rendez-vous', 'en': 'Appointment Manager'}
+"welcome_msg": {'ar': 'أهلاً بك', 'fr': 'Bienvenue', 'en': 'Welcome'}
+"activation_title": {'ar': '🔑 تفعيل البرنامج', 'fr': 'Activation du Programme', 'en': '🔑 Program Activation'}
+"step1_title": {'ar': 'الخطوة 1: أرسل مُعرِّف الجهاز', 'fr': "Étape 1: Envoyez l'ID Machine", 'en': 'Step 1: Send Machine ID'}
+"copy_id": {'ar': 'نسخ مُعرِّف الجهاز', 'fr': "Copier l'ID Machine", 'en': 'Copy Machine ID'}
+"step2_title": {'ar': 'الخطوة 2: تحميل ملف الترخيص', 'fr': 'Étape 2: Téléversez le fichier Licence', 'en': 'Step 2: Upload License File'}
+"select_license": {'ar': 'اختيار ملف الترخيص', 'fr': 'Choisir le Fichier Licence', 'en': 'Select License File'}
+"select_license_file": {'ar': 'اختر ملف الترخيص', 'fr': 'Sélectionnez Fichier Licence', 'en': 'Select License File'}
+"note_msg": {'ar': 'ملاحظة: ضع ملف الترخيص المرسل في مجلد البرنامج ثم اضغط "اختيار".', 'fr': "Note: Placez le fichier dans le dossier de l'application.", 'en': 'Note: Place the file in the app folder then select it.'}
+"activation_success": {'ar': '✅ تم التفعيل بنجاح! جاري التحويل...', 'fr': 'Activation réussie !', 'en': '✅ Activation successful! Redirecting...'}
+"activation_failed": {'ar': '❌ فشل التفعيل. السبب: ', 'fr': "Échec de l'activation. Raison: ", 'en': '❌ Activation failed. Reason: '}
+"invalid_file": {'ar': "الرجاء اختيار ملف 'license.json' صحيح.", 'fr': 'Veuillez sélectionner un fichier valide.', 'en': "Please select a valid 'license.json' file."}
+"file_copied": {'ar': 'تم نسخ الملف بنجاح. جاري محاولة التفعيل...', 'fr': "Fichier copié. Tentative d'activation...", 'en': 'File copied. Attempting activation...'}
+"no_file_selected": {'ar': 'لم يتم اختيار أي ملف.', 'fr': 'Aucun fichier sélectionné.', 'en': 'No file selected.'}
+"copy_failed": {'ar': 'فشل نسخ الملف.', 'fr': 'Échec de la copie du fichier.', 'en': 'File copy failed.'}
+"login_title": {'ar': 'تسجيل دخول موظف الاستقبال', 'fr': 'Connexion Réceptionniste', 'en': 'Receptionist Login'}
+"username_label": {'ar': 'اسم المستخدم', 'fr': "Nom d'utilisateur", 'en': 'Username'}
+"password_label": {'ar': 'كلمة المرور', 'fr': 'Mot de passe', 'en': 'Password'}
+"login_button": {'ar': 'تسجيل الدخول', 'fr': 'Se Connecter', 'en': 'Log In'}
+"empty_fields": {'ar': 'الرجاء إدخال اسم المستخدم وكلمة المرور.', 'fr': 'Veuillez remplir tous les champs.', 'en': 'Please fill in all fields.'}
+"wrong_password": {'ar': 'كلمة المرور خاطئة.', 'fr': 'Mot de passe incorrect.', 'en': 'Wrong password.'}
+"user_not_found": {'ar': 'اسم المستخدم غير موجود.', 'fr': 'Utilisateur non trouvé.', 'en': 'User not found.'}
+"version": {'ar': 'الإصدار', 'fr': 'Version', 'en': 'Version'}
+"dashboard_title": {'ar': 'لوحة التحكم', 'fr': 'Tableau de Bord', 'en': 'Dashboard'}
+"appointments_tab": {'ar': 'المواعيد', 'fr': 'Rendez-vous', 'en': 'Appointments'}
+"clients_tab": {'ar': 'العملاء', 'fr': 'Clients', 'en': 'Clients'}
+"reports_tab": {'ar': 'التقارير', 'fr': 'Rapports', 'en': 'Reports'}
+"settings_tab": {'ar': 'الإعدادات', 'fr': 'Paramètres', 'en': 'Settings'}
+"logout_btn": {'ar': 'تسجيل الخروج', 'fr': 'Déconnexion', 'en': 'Log Out'}
+"new_appointment": {'ar': 'موعد جديد', 'fr': 'Nouveau Rendez-vous', 'en': 'New Appointment'}
+"date_label": {'ar': 'التاريخ', 'fr': 'Date', 'en': 'Date'}
+"time_label": {'ar': 'الوقت', 'fr': 'Heure', 'en': 'Time'}
+"duration_label": {'ar': 'المدة (بالدقائق)', 'fr': 'Durée (min)', 'en': 'Duration (min)'}
+"service_label": {'ar': 'الخدمة / الغرض', 'fr': 'Service / Objet', 'en': 'Service / Purpose'}
+"status_label": {'ar': 'الحالة', 'fr': 'Statut', 'en': 'Status'}
+"status_confirmed": {'ar': 'مُؤكَّد', 'fr': 'Confirmé', 'en': 'Confirmed'}
+"status_attended": {'ar': 'حاضر', 'fr': 'Présent', 'en': 'Attended'}
+"status_absent": {'ar': 'غائب', 'fr': 'Absent', 'en': 'Absent'}
+"status_cancelled": {'ar': 'مُلغى', 'fr': 'Annulé', 'en': 'Cancelled'}
+"save_btn": {'ar': 'حفظ', 'fr': 'Enregistrer', 'en': 'Save'}
+"cancel_btn": {'ar': 'إلغاء', 'fr': 'Annuler', 'en': 'Cancel'}
+"report_daily": {'ar': 'التقرير اليومي', 'fr': 'Rapport Journalier', 'en': 'Daily Report'}
+"report_weekly": {'ar': 'التقرير الأسبوعي', 'fr': 'Rapport Hebdomadaire', 'en': 'Weekly Report'}
+"report_monthly": {'ar': 'التقرير الشهري', 'fr': 'Rapport Mensuel', 'en': 'Monthly Report'}
+"stats_attendance": {'ar': 'نسبة الحضور', 'fr': 'Taux de Présence', 'en': 'Attendance Rate'}
+"stats_peak_hours": {'ar': 'ساعات الذروة', 'fr': 'Heures de Pointe', 'en': 'Peak Hours'}
+"print_btn": {'ar': 'طباعة', 'fr': 'Imprimer', 'en': 'Print'}
+"settings_company_info": {'ar': 'معلومات الشركة', 'fr': 'Infos Société', 'en': 'Company Info'}
+"settings_theme": {'ar': 'مظهر التطبيق', 'fr': "Thème de l'App", 'en': 'App Theme'}
+"settings_working_hours": {'ar': 'ساعات العمل', 'fr': 'Heures de Travail', 'en': 'Working Hours'}
+"language_select": {'ar': 'اللغة', 'fr': 'Langue', 'en': 'Language'}
+}
+ """
+
+
+
+
+******** THEME ****************
+
+
+"the_result_of db.get_current_theme() "="""
+{
+"calendar": {'current_day': {'current_day': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF'}}, 'selected_day': {'selected_day': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF'}}, 'normal_day': {'normal_day': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None, 'text_color': '#2A2D34'}}, 'appointment': {'confirmed': {'property_value': '#4CAF50', 'font_weight': None, 'font_size': None}, 'pending': {'property_value': '#FF9800', 'font_weight': None, 'font_size': None}, 'cancelled': {'property_value': '#E9ECEF', 'font_weight': None, 'font_size': None, 'text_decoration': 'line-through'}}}
+"color": {'primary': {'blue_trust': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None}, 'pure_white': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None}, 'charcoal_black': {'property_value': '#2A2D34', 'font_weight': None, 'font_size': None}}, 'secondary': {'light_blue': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None}, 'light_gray': {'property_value': '#F8F9FA', 'font_weight': None, 'font_size': None}, 'medium_gray': {'property_value': '#E9ECEF', 'font_weight': None, 'font_size': None}}, 'status': {'success_green': {'property_value': '#4CAF50', 'font_weight': None, 'font_size': None}, 'warning_orange': {'property_value': '#FF9800', 'font_weight': None, 'font_size': None}, 'danger_red': {'property_value': '#F44336', 'font_weight': None, 'font_size': None}}}
+"form": {'input': {'input_field': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None, 'border': '1px solid #E9ECEF', 'border_radius': '6px', 'box_shadow': '0px 0px 0px 2px rgba(46, 134, 171, 0.1)'}}, 'focus': {'input_focus': {'property_value': '1px solid #2E86AB', 'font_weight': None, 'font_size': None, 'box_shadow': '0px 0px 0px 3px rgba(46, 134, 171, 0.15)'}}}
+"typography": {'main_title': {'arabic_main_title_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Bold', 'font_size': '24px'}, 'english_main_title_en': {'property_value': 'Inter', 'font_weight': 'Bold', 'font_size': '24px'}}, 'subtitle': {'arabic_subtitle_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'SemiBold', 'font_size': '18px'}, 'english_subtitle_en': {'property_value': 'Inter', 'font_weight': 'SemiBold', 'font_size': '18px'}}, 'normal_text': {'arabic_normal_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Regular', 'font_size': '16px'}, 'english_normal_en': {'property_value': 'Inter', 'font_weight': 'Regular', 'font_size': '16px'}}, 'secondary_text': {'arabic_secondary_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Light', 'font_size': '14px'}, 'english_secondary_en': {'property_value': 'Inter', 'font_weight': 'Light', 'font_size': '14px'}}}  
+"spacing": {'scale': {'base_unit': {'property_value': '8px', 'font_weight': None, 'font_size': None}}, 'sizes': {'small': {'property_value': '8px', 'font_weight': None, 'font_size': None}, 'medium': {'property_value': '16px', 'font_weight': None, 'font_size': None}, 'large': {'property_value': '24px', 'font_weight': None, 'font_size': None}, 'xlarge': {'property_value': '32px', 'font_weight': None, 'font_size': None}}}
+"button": {'primary': {'primary_button': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF', 'border_radius': '8px', 'box_shadow': '0px 2px 4px rgba(46, 134, 171, 0.2)'}}, 'secondary': {'secondary_button': {'property_value': 'transparent', 'font_weight': None, 'font_size': None, 'border': '1px solid #2E86AB', 'text_color': '#2E86AB', 'border_radius': '8px'}}, 'hover': {'button_hover': {'property_value': '0px 4px 8px rgba(46, 134, 171, 0.3)', 'font_weight': None, 'font_size': None, 'transform': 'translateY(-1px)'}}}
+"animation": {'timing': {'default': {'property_value': '0.3s', 'font_weight': None, 'font_size': None, 'timing_function': 'ease-out'}}, 'types': {'animations': {'property_value': 'fade-in, slide-up, scale', 'font_weight': None, 'font_size': None}}}
+"icon": {'style': {'line_icons': {'property_value': 'Line Icons', 'font_weight': None, 'font_size': None, 'stroke_width': '1.5px'}}, 'size': {'main_icons': {'property_value': '20px', 'font_weight': None, 'font_size': None}, 'secondary_icons': {'property_value': '16px', 'font_weight': None, 'font_size': None}}, 'color': {'icon_default': {'property_value': '#2A2D34', 'font_weight': None, 'font_size': None}, 'icon_active': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None}}}
+}
+"""
+
+
+
+"the_result_of db.get_theme_by_category(calendar) "="""
+"calendar": {'current_day': {'current_day': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF'}},
+			'selected_day': {'selected_day': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF'}},
+            'normal_day': {'normal_day': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None, 'text_color': '#2A2D34'}},
+            'appointment': {'confirmed': {'property_value': '#4CAF50', 'font_weight': None, 'font_size': None},
+            'pending': {'property_value': '#FF9800', 'font_weight': None, 'font_size': None},
+            'cancelled': {'property_value': '#E9ECEF', 'font_weight': None, 'font_size': None, 'text_decoration': 'line-through'}}}
+"""
+
+"the_result_of db.get_theme_by_category(color) "="""
+"color": {'primary': {'blue_trust': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None}, 'pure_white': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None}, 'charcoal_black': {'property_value': '#2A2D34', 'font_weight': None, 'font_size': None}}, 'secondary': {'light_blue': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None}, 'light_gray': {'property_value': '#F8F9FA', 'font_weight': None, 'font_size': None}, 'medium_gray': {'property_value': '#E9ECEF', 'font_weight': None, 'font_size': None}}, 'status': {'success_green': {'property_value': '#4CAF50', 'font_weight': None, 'font_size': None}, 'warning_orange': {'property_value': '#FF9800', 'font_weight': None, 'font_size': None}, 'danger_red': {'property_value': '#F44336', 'font_weight': None, 'font_size': None}}}
+"""
+"the_result_of db.get_theme_by_category(spacing) "="""
+"spacing": {'scale': {'base_unit': {'property_value': '8px', 'font_weight': None, 'font_size': None}}, 'sizes': {'small': {'property_value': '8px', 'font_weight': None, 'font_size': None}, 'medium': {'property_value': '16px', 'font_weight': None, 'font_size': None}, 'large': {'property_value': '24px', 'font_weight': None, 'font_size': None}, 'xlarge': {'property_value': '32px', 'font_weight': None, 'font_size': None}}}
+"""
+"the_result_of db.get_theme_by_category(button) "="""
+"button": {'primary': {'primary_button': {'property_value': '#2E86AB', 'font_weight': None, 'font_size': None, 'text_color': '#FFFFFF', 'border_radius': '8px', 'box_shadow': '0px 2px 4px rgba(46, 134, 171, 0.2)'}}, 'secondary': {'secondary_button': {'property_value': 'transparent', 'font_weight': None, 'font_size': None, 'border': '1px solid #2E86AB', 'text_color': '#2E86AB', 'border_radius': '8px'}}, 'hover': {'button_hover': {'property_value': '0px 4px 8px rgba(46, 134, 171, 0.3)', 'font_weight': None, 'font_size': None, 'transform': 'translateY(-1px)'}}}
+"""
+"the_result_of db.get_theme_by_category(form) "="""
+"form": {'input': {'input_field': {'property_value': '#FFFFFF', 'font_weight': None, 'font_size': None, 'border': '1px solid #E9ECEF', 'border_radius': '6px', 'box_shadow': '0px 0px 0px 2px rgba(46, 134, 171, 0.1)'}}, 'focus': {'input_focus': {'property_value': '1px solid #2E86AB', 'font_weight': None, 'font_size': None, 'box_shadow': '0px 0px 0px 3px rgba(46, 134, 171, 0.15)'}}}
+"""
+"the_result_of db.get_theme_by_category(animation) "="""
+"animation": {'timing': {'default': {'property_value': '0.3s', 'font_weight': None, 'font_size': None, 'timing_function': 'ease-out'}}, 'types': {'animations': {'property_value': 'fade-in, slide-up, scale', 'font_weight': None, 'font_size': None}}}
+"""
+"the_result_of db.get_theme_by_category(typography) "="""
+"typography": {'main_title': {'arabic_main_title_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Bold', 'font_size': '24px'}, 'english_main_title_en': {'property_value': 'Inter', 'font_weight': 'Bold', 'font_size': '24px'}}, 'subtitle': {'arabic_subtitle_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'SemiBold', 'font_size': '18px'}, 'english_subtitle_en': {'property_value': 'Inter', 'font_weight': 'SemiBold', 'font_size': '18px'}}, 'normal_text': {'arabic_normal_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Regular', 'font_size': '16px'}, 'english_normal_en': {'property_value': 'Inter', 'font_weight': 'Regular', 'font_size': '16px'}}, 'secondary_text': {'arabic_secondary_ar': {'property_value': 'IBM Plex Sans Arabic', 'font_weight': 'Light', 'font_size': '14px'}, 'english_secondary_en': {'property_value': 'Inter', 'font_weight': 'Light', 'font_size': '14px'}}}  
+"""
+"the_result_of db.get_theme_by_category(icon) "="""
+"icon": {'style': {'line_icons': {'property_value': 'Line Icons', 'font_weight': None, 'font_size': None, 'stroke_width': '1.5px'}}, 'size': {'main_icons': {'property_value': '20px', 'font_weight': None, 'font_size': None}, 'secondary_icons': {'property_value': '16px', 'font_weight': None, 'font_size': None}}, 'color': {'icon_default': {'property_value': '#2A2D34', 'font_weight': None, 'font_size': None}, 'icon_active': {'property_value': '#6BBAD6', 'font_weight': None, 'font_size': None}}}
+"""
+
+
+"""
+
+
+******** دوال التعامل مع قاعدة البيانات ********
+******** Setter/Getter Methods ****************
+
+# ----------------------------------------------------------------------
+# 1. دوال الإعدادات والتراخيص (Settings & Licensing)
+# ----------------------------------------------------------------------
+get_settings(self) -> Optional[Dict]:
+        ""استرداد جميع الإعدادات
+        Args:
+            None
+        Returns:
+            Optional[Dict]: {'id': 1, 'company_name': 'Appointment Manager', 'language': 'ar','logo_path': 'path','working_days': 'Saturday, Sunday','start_time': '09:00','end_time': '17:00','phone_numbers': '123456789','emails': 'info@example.com','hardware_id': 'dummy_hardware_id'}
+              قاموس يحتوي على إعدادات التطبيق أو None إذا لم توجد
+        ""
+
+update_settings(self, data: Dict) -> bool:
+        ""تحديث الإعدادات
+        Args:
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، e.g., {'company_name': 'Appointment Manager', 'language': 'ar','logo_path': 'path','working_days': 'Saturday, Sunday','start_time': '09:00','end_time': '17:00','phone_numbers': '123456789','emails': 'info@example.com','hardware_id': 'dummy_hardware_id'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        ""
+
+        
+set_device_info(self, data: Dict) -> bool:
+    """إدخال/تحديث معلومات الجهاز (Setter)
+        Args:
+            data (Dict): قاموس يحتوي على معلومات الجهاز، e.g., {'machine_id_hash': 'hash_value', 'bios_uuid': 'uuid_value', 'disk_serial': 'serial_value', 'mac_address': 'mac_value'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """   
+get_device_info(self) -> Optional[Dict]:
+        """استرداد معلومات الجهاز (Getter)
+        Args:
+            None
+        Returns:
+            Optional[Dict]:{'id': 1, 'machine_id_hash': 'hash_value', 'bios_uuid': 'uuid_value', 'disk_serial': 'serial_value', 'mac_address': 'mac_value'}
+              قاموس يحتوي على معلومات الجهاز، أو None إذا لم يتم العثور على سجل.
+        """
+set_license_info(self, data: Dict) -> bool:
+        """إدخال/تحديث معلومات الترخيص
+        Args:
+            data (Dict): قاموس يحتوي على معلومات الترخيص، e.g., {'license_key': 'key_value', 'is_active': 1, 'machine_id_used': 'machine_id', 'issued_at': '2024-01-01', 'expires_at': '2025-01-01', 'signature_status': 'valid', 'last_check_date': '2024-06-01'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """
+get_license_info(self) -> Optional[Dict]:
+        """إدخال/تحديث معلومات الترخيص
+        Args:
+            data (Dict): قاموس يحتوي على معلومات الترخيص، e.g., {'license_key': 'key_value', 'is_active': 1, 'machine_id_used': 'machine_id', 'issued_at': '2024-01-01', 'expires_at': '2025-01-01', 'signature_status': 'valid', 'last_check_date': '2024-06-01'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        """
+
+#=========== theme management functions ===========
+add_theme(self, data: dict) -> bool:
+        """
+        إدخال ثيم جديد
+        
+        Args:
+            data (dict): {'theme_name': 'Dark Theme', 'settings_id': 1, 'state': 'active', 'is_default': 0}
+        
+        Returns:
+            bool: True إذا تم الإدخال بنجاح، False خلاف ذلك.
+        """
+get_default_theme(self) -> Optional[int]:
+        """
+        الحصول على معرف الثيم الافتراضي
+        Args:
+            None
+        Returns:
+            Optional[int]: معرف الثيم الافتراضي أو None إذا لم يكن موجودًا.
+        
+        """
+get_last_theme(self) -> Optional[int]:
+        """
+        الحصول على معرف آخر ثيم تم إدخاله
+        Args:
+            None
+        Returns:
+            Optional[int]: معرف آخر ثيم تم إدخاله أو None إذا لم يكن موجودًا.
+        
+        """
+set_default_theme(self, theme_id: int) -> bool:
+        """
+        تعيين ثيم كافتراضي
+        Args:
+            theme_id (int): معرف الثيم الذي سيتم تعيينه كافتراضي.
+        
+        Returns:
+            bool: True إذا تم التعيين بنجاح، False خلاف ذلك.
+        """
+update_theme_settings(self, data: Dict) -> bool:
+        """
+        تحديث إعدادات التنسيق (Setter)
+
+        Args:
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، مثل {'theme_name': 'Dark Theme', 'state': 'active', 'is_default': 0}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.
+        
+        """
+get_current_theme(self) -> Dict[str, Dict]:
+        """الحصول على الثيم الحالي (مع caching)
+        Returns:
+            Dict[str, Dict]: قاموس يحتوي على بيانات الثيم الحالي.
+        """
+get_theme_by_category(self, category: str) -> Dict:
+        """استرداد إعدادات فئة محددة
+        Args:
+            category (str): الفئة التي سيتم استردادها (مثل 'color', 'typography', 'button').
+        Returns:
+            Dict: قاموس يحتوي على إعدادات الفئة المحددة.
+        """
+get_color(self, color_name: str) -> str:
+        """استرداد لون محدد بسهولة
+        Args:
+            color_name (str): اسم اللون الذي سيتم استرداده (مثل 'blue_trust', 'pure_white').
+        Returns:
+            str: قيمة اللون (مثل '#2E86AB') أو سلسلة فارغة إذا لم يتم العثور عليه.
+        """
+
+get_font_style(self, language: str, font_type: str) -> Dict:
+        """استرداد إعدادات الخط
+        args:
+            language (str): اللغة (مثل 'ar' أو 'en').
+            font_type (str): نوع الخط (مثل 'main_title', 'subtitle', 'normal', 'secondary').
+        Returns:
+            Dict: قاموس يحتوي على إعدادات الخط (مثل {'font_family': 'IBM Plex Sans Arabic', 'font_weight': 'Bold', 'font_size': '24px'}) أو قاموس فارغ إذا لم يتم العثور عليه.
+        """
+
+export_theme_to_json(self, theme_id: Optional[int] = None, file_path: str = "theme_export.json") -> bool:
+        """تصدير الثيم إلى ملف JSON
+        args:
+            theme_id (Optional[int]): معرف الثيم الذي سيتم تصديره. إذا لم يتم تحديده، سيتم تصدير الثيم الافتراضي.
+            file_path (str): مسار ملف JSON الذي سيتم حفظ الثيم فيه.
+        Returns:
+            bool: True إذا تم التصدير بنجاح، False خلاف ذلك.
+        """
+import_theme_from_json(self, file_path: str, theme_name: str = "imported_theme") -> Optional[int]:
+        """استيراد ثيم من ملف JSON
+        args:
+            file_path (str): مسار ملف JSON الذي يحتوي على بيانات الثيم.
+            theme_name (str): اسم الثيم الجديد الذي سيتم إنشاؤه.
+        Returns:
+            Optional[int]: معرف الثيم الجديد إذا تم الاستيراد بنجاح، None خلاف ذلك.
+        """
+
+switch_theme(self, theme_id: int) -> bool:
+        """تبديل الثيم الحالي
+        
+        Args:
+            theme_id (int): معرف الثيم الذي سيتم التبديل إليه.
+        Returns:
+            bool: True إذا تم التبديل بنجاح، False خلاف ذلك.
+        """
+update_theme_element(self, category: str, subcategory: str, element_name: str, 
+                            property_name: str, property_value: str, 
+                            theme_id: Optional[int] = None,
+                            language: Optional[str] = None,
+                            font_weight: Optional[str] = None,
+                            font_size: Optional[str] = None) -> bool:
+        """
+        تحديث خاصية معينة في عنصر الثيم
+        
+        Args:
+            category: الفئة (color, typography, button, etc.)
+            subcategory: الفئة الفرعية (primary, secondary, etc.)
+            element_name: اسم العنصر (blue_trust, primary_button, etc.)
+            property_name: اسم الخاصية (hex, background, font_family, etc.)
+            property_value: قيمة الخاصية الجديدة
+            theme_id: معرف الثيم (اختياري - يستخدم الافتراضي إذا لم يتم تحديد)
+            language: اللغة (للفئة typography)
+            font_weight: وزن الخط (للفئة typography)
+            font_size: حجم الخط (للفئة typography)
+        
+        Returns:
+            bool: True إذا نجح التحديث، False إذا فشل
+        """
+add_theme_details_element(self, data: dict) -> bool:
+        """
+        إدخال تفاصيل عنصر ثيم جديدة
+        
+        Args:
+            data (dict): { 'category': 'color', 'subcategory': 'status', 'element_name': 'danger_red', 'property_name': 'hex', 'property_value': '#F44336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 }
+        
+        Returns:
+            bool: True إذا تم الإدخال بنجاح، False خلاف ذلك.
+        """
+add_complete_theme(self,data:dict,data_theme:dict) -> bool:
+        """
+        ادخال جميع بيانات الثيم 
+
+        Args:
+        data (dict): {'theme_name': 'Dark Theme', 'settings_id': 1, 'state': 'active', 'is_default': 0}
+
+        data_theme (dict) : {
+            1:{ 'category': 'color', 'subcategory': 'status', 'element_name': 'danger_red', 'property_name': 'hex', 'property_value': '#F44336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            2:{ 'category': 'color', 'subcategory': 'primary', 'element_name': '', 'property_name': 'hex', 'property_value': '#2E86AB','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            3:{ 'category': 'color', 'subcategory': 'secondary', 'element_name': '', 'property_name': 'hex', 'property_value': '#4AC336','language':'fr','font_weight':'' , 'font_size':'', 'theme_id': 1 },
+            .... etc
+        
+        }
+
+# ----------------------------------------------------------------------
+# 2. دوال المستخدمين والعملاء (Users & Clients)
+# ----------------------------------------------------------------------
+add_user(self, data: Dict) -> Optional[int]:
+        """إضافة مستخدم جديد
+        args:data (Dict):{'username': 'user1', 'password_hash': 'hashed_pw', 'full_name': 'User One', 'role': 'receptionist', 'created_at': '2024-06-01T12:00:00'}
+              قاموس يحتوي على الحقول التي سيتم إدخالها، e.g
+        Returns:
+            Optional[int]: معرف المستخدم الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+ get_user_by_username(self, username: str) -> Optional[Dict]:
+        """استرداد مستخدم بناءً على اسم المستخدم (لتسجيل الدخول)
+        args:
+            username (str): اسم المستخدم الذي سيتم البحث عنه.
+        Returns:
+            Optional[Dict]: {'user_id': 1, 'username': 'user1', 'password_hash': 'hashed_pw', 'full_name': 'User One', 'role': 'receptionist', 'created_at': '2024-06-01T12:00:00'}
+                قاموس يحتوي على حقول المستخدم، أو None إذا لم يتم العثور على المستخدم.
+        """
+add_client(self, data: Dict) -> Optional[int]:
+        """إضافة عميل جديد
+        args:
+            data (Dict): {'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}
+        returns:
+            Optional[int]: معرف العميل الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+get_client_details(self, client_id: int) -> Optional[Dict]:
+        """استرداد تفاصيل عميل واحد
+        args:
+            client_id (int): معرف العميل الذي سيتم استرداد تفاصيله.
+
+        returns:
+            Optional[Dict]: {'client_id': 1, 'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}
+                قاموس يحتوي على حقول العميل، أو None إذا لم يتم العثور على العميل.
+        """
+search_clients(self, search_term: str) -> List[Dict]:
+        """البحث عن عملاء بالاسم أو الهاتف (للإدخال و التقارير)
+        args:
+            search_term (str): مصطلح البحث للبحث في حقول full_name أو phone_number.
+        returns:
+            List[Dict]: [{'client_id': 1, 'full_name': 'Client One', 'phone_number': '123456789', 'email': 'client@example.com', 'notes': 'VIP client', 'created_at': '2024-06-01T12:00:00'}]"""
+get_client_appointments_history(self, client_id: int) -> List[Dict]:
+        """استرداد جميع مواعيد عميل محدد (لتتبع العميل)
+        args:
+            client_id (int): معرف العميل الذي سيتم استرداد تاريخ مواعيده.
+        returns:
+            List[Dict]: [{'appointment_id': 1, 'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00', 'service_name': 'Service One'}]
+        """      
+
+
+
+
+
+# ----------------------------------------------------------------------
+# 3. دوال المواعيد والخدمات (Appointments & Services)
+# ----------------------------------------------------------------------
+add_service(self, data: Dict) -> Optional[int]:
+        """إضافة خدمة جديدة
+        args:
+            data (Dict): {'name_ar': 'Service One', 'name_fr': 'Service Un', 'price': 50.0, 'duration_minutes': 30, 'is_active': 1}
+        returns:
+            Optional[int]: معرف الخدمة الجديدة إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+add_appointment(self, data: Dict) -> Optional[int]:
+        """إضافة موعد جديد
+        Args:
+            data (Dict):{'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00'}
+        Returns:
+            Optional[int]: معرف الموعد الجديد إذا تم الإدخال بنجاح، None خلاف ذلك.
+        """
+update_appointment(self, appointment_id: int, data: Dict) -> bool:
+        """تحديث موعد موجود
+        
+        Args:
+            appointment_id (int): معرف الموعد الذي سيتم تحديثه.
+            data (Dict): قاموس يحتوي على الحقول التي سيتم تحديثها، e.g {'status': 'canceled', 'notes': 'Client called to cancel'}{'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00'}
+        Returns:
+            bool: True إذا تم التحديث بنجاح، False خلاف ذلك.       
+        """
+get_daily_appointments(self, date: str) -> List[Dict]:
+        """استرداد جميع المواعيد ليوم محدد (للرؤية اليومية)
+        Args:
+            date (str):  'YYYY-MM-DD' format التاريخ الذي سيتم استرداد المواعيد له.
+        Returns:
+            the result will be a list of dictionaries containing the appointment fields along with client_name, phone_number , service_name_ar, service_name_fr, ORDER start_time  e.g.,
+            List[Dict]:[{'appointment_id': 1,'client_id': 1, 'user_id': 1, 'service_id': 2, 'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'notes': '', 'is_paid': 0, 'reminder_set': 0, 'created_at': '2024-06-01T12:00:00', 'updated_at': '2024-06-01T12:00:00', 'client_name': 'Client One', 'phone_number': '123456789', 'service_name_ar': 'Service One', 'service_name_fr': 'Service Un'}]
+        """
+get_weekly_appointments(self, start_date: str, end_date: str) -> List[Dict]:
+        """استرداد جميع المواعيد لمدى زمني محدد (للرؤية الأسبوعية/الشهرية)
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:the result will be a list of dictionaries containing the appointment fields along with client_name, service_name_ar, service_name_fr, date BETWEEN start_date, end_date ORDER BY appointments date, appointments start_time e.g.,
+            List[Dict]:[{'date': '2024-06-10', 'start_time': '10:00', 'duration_minutes': 30, 'status': 'confirmed', 'client_name': 'Client One', 'service_name_ar': 'Service One', 'service_name_fr': 'Service Un'}]
+        """
+get_all_services(self) -> List[Dict]:
+        """استرداد جميع الخدمات المتاحة
+        Args:
+            None
+        Returns:the result will be a list of dictionaries containing the service fields, e.g.,
+            List[Dict]: [{'service_id': 1, 'name_ar': 'خدمة واحدة', 'name_fr': 'Service One', 'price': 100, 'duration_minutes': 30, 'is_active': 1}]
+        """
+
+# ----------------------------------------------------------------------
+# 4. دوال التقارير والإحصائيات (Reports & Analytics)
+# ----------------------------------------------------------------------
+get_attendance_stats(self, start_date: str, end_date: str) -> List[Dict]:
+        """استرداد إحصائيات الحضور/الغياب/الإلغاء لفترة زمنية محددة
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:
+            List[Dict]: [{'status': 'confirmed', 'count': 10}, {'status': 'canceled', 'count': 5}]
+        """
+get_peak_hours_stats(self, start_date: str, end_date: str) -> List[Dict]:
+        """إحصائية ساعات الذروة (بناءً على بداية الساعة)
+        Args:
+            start_date (str): 'YYYY-MM-DD' format بداية المدى الزمني.
+            end_date (str): 'YYYY-MM-DD' format نهاية المدى الزمني.
+        Returns:
+            List[Dict]: [{'hour': '10', 'count': 15}, {'hour': '11', 'count': 10}]
+        """
+
+
+
+
+
+
+# ----------------------------------------------------------------------
+# 5. دوال الترجمة والفواتير (Translations & Invoices)
+# ----------------------------------------------------------------------
+
+get_translations(self) -> Dict[str, Dict[str, str]]:
+        """استرداد جميع الترجمات لمدير الترجمة (Translation Manager)
+        Args:
+            None
+        Returns:the result will be a dictionary in the format
+            Dict[str, Dict[str, str]]:  {'key': {'ar': 'النص', 'fr': 'Texte', 'en': 'Text'}}
+        """
+insert_translation(self, key: str, ar_text: str, fr_text: str, en_text: str) -> Optional[int]:
+        """إدخال ترجمة جديدة
+        Args:
+            key (str): المفتاح الفريد للنص المترجم.
+            ar_text (str): الترجمة العربية.
+            fr_text (str): الترجمة الفرنسية.
+            en_text (str): الترجمة الإنجليزية.
+        Returns:
+            Optional[int]: معرف السجل الجديد إذا تم الإدخال بنجاح، None خلاف ذلك
+        """
+add_invoice(self, data: Dict) -> Optional[int]:
+        """إضافة فاتورة جديدة
+        Args:
+            data (Dict):{ 'appointment_id': 1, 'created_by_user_id': 1,'issue_date': '2023-01-01', 'total_amount': 150.0, 'payment_status': 'unpaid'}
+        Returns:
+            Optional[int]: معرف الفاتورة الجديدة إذا تم الإدخال بنجاح، None خلاف
+        """    
+get_invoice_by_appointment(self, appointment_id: int) -> Optional[Dict]:
+        """استرداد فاتورة بناءً على مُعرِّف الموعد (لطباعة الفاتورة)
+        Args:
+            appointment_id (int): مُعرِّف الموعد.
+        Returns:
+            Optional[Dict]: {'invoice_id': 1, 'invoice_number': 1001, 'appointment_id': 1, 'created_by_user_id': 1,'issue_date': '2023-01-01', 'total_amount': 150.0, 'payment_status': 'unpaid', 'client_name': 'Client One', 'date': '2024-06-10', 'start_time': '10:00'}
+        """
+
+"""
+
+
+
+
+
+******** دوال التعامل الترجمات ********
+******** Setter/Getter Methods ****************
+* translation_manager.py
+*class TranslationManager
+
+
+set_language(self, lang_code: str):
+        """تغيير اللغة الحالية للتطبيق وحفظها في قاعدة البيانات.
+        Args:
+            lang_code (str): رمز اللغة الجديد (مثل 'ar'، 'fr'، 'en').
+        Returns: None
+        """
+
+get_language(self) -> str:
+        """إرجاع اللغة الحالية.
+        Args: None
+        Returns:
+            str: رمز اللغة الحالي.
+        """
+
+get_text(self, key: str, default_text: str = "TEXT_MISSING") -> str:
+        """
+        استرداد النص المترجم بناءً على المفتاح (key) واللغة الحالية.
+
+        Args:
+            key (str): مفتاح النص المطلوب ترجمته.
+            default_text (str): النص الافتراضي إذا لم يتم العثور على الترجمة.
+        Returns:
+            str: النص المترجم أو النص الافتراضي إذا لم تتوفر الترجمة
+        """
+
+
+get_text(self, key: str, default_text: str = "TEXT_MISSING") -> str:
+        """
+        استرداد النص المترجم بناءً على المفتاح (key) واللغة الحالية.
+
+        Args:
+            key (str): مفتاح النص المطلوب ترجمته.
+            default_text (str): النص الافتراضي إذا لم يتم العثور على الترجمة.
+        Returns:
+            str: النص المترجم أو النص الافتراضي إذا لم تتوفر الترجمة
+        """
+
+get_all_translations(self) -> Dict[str, Dict[str, str]]:
+        """إرجاع جميع الترجمات المحملة.
+        Args: None
+        Returns:
+            Dict[str, Dict[str, str]]: قاموس يحتوي على جميع الترجمات.
+        """

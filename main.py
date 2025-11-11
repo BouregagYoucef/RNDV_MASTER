@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 # استيراد المديرات والإعدادات
-from config.settings import DB_PATH, APP_TITLE,LICENSE_FILE_PATH,PUBLIC_KEY_PATH
+from config.settings import DB_PATH, APP_TITLE,LICENSE_FILE_PATH,PUBLIC_KEY_PATH,DEFAULT_THEME,ALL_TRANSLATION,ALL_SETTINGS
 from db.database_manager import DatabaseManager
 from utils.license_handler import LicenseManager
 from utils.translation_manager import TranslationManager
@@ -76,8 +76,8 @@ def main(page: ft.Page):
     run_database_tests()
     #db_manager = DatabaseManager(db_path=DB_PATH)
     # تحميل إعدادات التنسيق واللغة
-    theme_settings = db_manager.get_current_theme() or {} # استخدام قاموس فارغ كاحتياط
-    settings = db_manager.get_settings()
+    theme_settings = DEFAULT_THEME
+    settings = ALL_SETTINGS
     
     license_manager = LicenseManager(db_manager=db_manager)
     translation_manager = TranslationManager(db_manager=db_manager)
